@@ -66,6 +66,25 @@ function buildSearchText(fields: {
     .join(" ");
 }
 
+/**
+ * Is this the same business being entered twice, or a second business owned by
+ * the same person?
+ *
+ * The email alone used to be enough to refuse a save, which made a real and
+ * ordinary case impossible: one owner with two Beach Hut Delis at two
+ * addresses is two advertisers who share a contact email. Joyce could enter
+ * the first and was then stuck.
+ *
+ * So a duplicate now means the same company name *and* the same email. That
+ * still catches the mistake the check was for -- entering the same advertiser
+ * twice -- while letting one person hold as many businesses as they actually
+ * have. Names are compared trimmed and case-insensitively, because "Beach Hut
+ * Deli" and "beach hut deli " are the same shop.
+ */
+function sameName(a: string | undefined, b: string | undefined): boolean {
+  return (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+}
+
 export const create = mutation({
   args: {
     orgId: v.string(),
@@ -73,16 +92,19 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     if (args.email) {
-      const existing = await ctx.db
+      const sharing = await ctx.db
         .query("contacts")
         .withIndex("by_orgId_and_email", (q) =>
           q.eq("orgId", args.orgId).eq("email", args.email)
         )
         .filter((q) => q.neq(q.field("isDeleted"), true))
-        .first();
-      if (existing) {
+        .collect();
+      const duplicate = sharing.find((c) => sameName(c.company, args.company));
+      if (duplicate) {
         throw new Error(
-          `A contact with the email "${args.email}" already exists.`
+          `"${args.company}" already exists with the email "${args.email}". ` +
+            `If this is a second location, give it a name that tells them apart ` +
+            `-- "${args.company} (Second Street)", say.`
         );
       }
     }
@@ -110,7 +132,7 @@ export const update = mutation({
     if (!doc) throw new Error("Contact not found");
 
     if (fields.email) {
-      const existing = await ctx.db
+      const sharing = await ctx.db
         .query("contacts")
         .withIndex("by_orgId_and_email", (q) =>
           q.eq("orgId", doc.orgId).eq("email", fields.email)
@@ -121,10 +143,13 @@ export const update = mutation({
             q.neq(q.field("_id"), id)
           )
         )
-        .first();
-      if (existing) {
+        .collect();
+      const duplicate = sharing.find((c) => sameName(c.company, fields.company));
+      if (duplicate) {
         throw new Error(
-          `A contact with the email "${fields.email}" already exists.`
+          `"${fields.company}" already exists with the email "${fields.email}". ` +
+            `If this is a second location, give it a name that tells them apart ` +
+            `-- "${fields.company} (Second Street)", say.`
         );
       }
     }
