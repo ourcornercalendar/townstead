@@ -37,7 +37,11 @@ describe("contacts.mutations.create", () => {
     expect(contact!.searchText).toBe("No Email Co Bob Smith");
   });
 
-  it("rejects duplicate email within the same org", async () => {
+  // The rule used to be one contact per email. That made an ordinary case
+  // impossible -- one owner, two shops, one billing address -- so a duplicate
+  // now means the same company name as well as the same email. The case that
+  // drove the change is in two-locations.test.ts.
+  it("rejects the same company entered twice on one email", async () => {
     const t = convexTest(schema, modules);
 
     await t.mutation(api.contacts.mutations.create, {
@@ -51,12 +55,34 @@ describe("contacts.mutations.create", () => {
     await expect(
       t.mutation(api.contacts.mutations.create, {
         orgId: "org_1",
-        company: "Second Co",
+        company: "First Co",
         firstName: "C",
         lastName: "D",
         email: "dupe@test.com",
       })
-    ).rejects.toThrowError('A contact with the email "dupe@test.com" already exists.');
+    ).rejects.toThrowError(/already exists with the email "dupe@test.com"/);
+  });
+
+  it("allows a different company on the same email", async () => {
+    const t = convexTest(schema, modules);
+
+    await t.mutation(api.contacts.mutations.create, {
+      orgId: "org_1",
+      company: "First Co",
+      firstName: "A",
+      lastName: "B",
+      email: "dupe@test.com",
+    });
+
+    const second = await t.mutation(api.contacts.mutations.create, {
+      orgId: "org_1",
+      company: "Second Co",
+      firstName: "C",
+      lastName: "D",
+      email: "dupe@test.com",
+    });
+
+    expect(second).toBeDefined();
   });
 
   it("allows the same email in different orgs", async () => {
@@ -121,7 +147,7 @@ describe("contacts.mutations.update", () => {
     expect(updated!.searchText).toBe("New Co New Name new@co.com");
   });
 
-  it("rejects duplicate email on update within the same org", async () => {
+  it("rejects an update that duplicates another contact outright", async () => {
     const t = convexTest(schema, modules);
 
     await t.mutation(api.contacts.mutations.create, {
@@ -143,12 +169,44 @@ describe("contacts.mutations.update", () => {
     await expect(
       t.mutation(api.contacts.mutations.update, {
         id: otherId,
-        company: "Other",
+        company: "Existing",
         firstName: "O",
         lastName: "T",
         email: "taken@test.com",
       })
-    ).rejects.toThrowError('A contact with the email "taken@test.com" already exists.');
+    ).rejects.toThrowError(/already exists with the email "taken@test.com"/);
+  });
+
+  it("allows an update onto a shared email under a different company", async () => {
+    // Moving a second location onto the owner's billing email.
+    const t = convexTest(schema, modules);
+
+    await t.mutation(api.contacts.mutations.create, {
+      orgId: "org_1",
+      company: "Existing",
+      firstName: "E",
+      lastName: "X",
+      email: "taken@test.com",
+    });
+
+    const otherId = await t.mutation(api.contacts.mutations.create, {
+      orgId: "org_1",
+      company: "Other",
+      firstName: "O",
+      lastName: "T",
+      email: "other@test.com",
+    });
+
+    await t.mutation(api.contacts.mutations.update, {
+      id: otherId,
+      company: "Other",
+      firstName: "O",
+      lastName: "T",
+      email: "taken@test.com",
+    });
+
+    const moved = await t.run(async (ctx) => ctx.db.get(otherId));
+    expect(moved!.email).toBe("taken@test.com");
   });
 
   it("allows keeping the same email on the same contact", async () => {
