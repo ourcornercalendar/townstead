@@ -81,6 +81,11 @@ export default defineSchema({
     description: v.optional(v.string()),
     logoFileId: v.optional(v.id("_storage")),
     featured: v.optional(v.boolean()),
+    // Joyce's decision that this advertiser belongs in the public business
+    // directory on ourcornercalendar.com. Absent means no: the contact list is
+    // a sales list going back years, and most of it is prospects and lapsed
+    // customers who should not appear on the website.
+    showOnWebsite: v.optional(v.boolean()),
     lat: v.optional(v.number()),
     lng: v.optional(v.number()),
     orgId: v.string(),
