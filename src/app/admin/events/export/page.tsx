@@ -25,6 +25,7 @@ import {
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { CalendarDays, Download } from "lucide-react";
 import { buildEventExportMonthGroups } from "@/lib/events-export";
+import { useDefaultYear } from "@/hooks/use-default-year";
 
 const MONTHS = [
   "January",
@@ -41,6 +42,8 @@ const MONTHS = [
   "December",
 ];
 
+// Falls back to the current year only when a typed year is unreadable;
+// the value the field opens on is the calendar being sold, below.
 const currentYear = new Date().getFullYear();
 
 function clampYear(n: number): number {
@@ -50,7 +53,8 @@ function clampYear(n: number): number {
 
 export default function EventsExportPage() {
   const { orgId, isReady } = useOrg();
-  const [yearInput, setYearInput] = useState(String(currentYear));
+  const { defaultYear } = useDefaultYear();
+  const [yearInput, setYearInput] = useState(String(defaultYear));
   const [editionSelect, setEditionSelect] = useState<string>("all");
 
   const events = useQuery(
