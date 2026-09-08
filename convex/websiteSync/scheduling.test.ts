@@ -13,12 +13,16 @@ import { modules } from "../test.setup";
  * anything appearing to be wrong, so it is worth a test of its own.
  */
 
+// Marked for the website. Only advertisers Joyce has chosen are pushed at
+// all -- the rule itself is covered in chosen.test.ts; these tests are about
+// whether a push that *should* happen is actually queued.
 const contact = {
   orgId: "org_1",
   company: "Pinot's Palette",
   firstName: "Jane",
   lastName: "Smith",
   email: "jane@pinots.example",
+  showOnWebsite: true,
 };
 
 /**
@@ -66,6 +70,7 @@ describe("scheduling the push to the website", () => {
         lastName: "Smith",
         email: "jane@pinots.example",
         phone: "916-555-0100",
+        showOnWebsite: true,
       });
 
       expect(await t.run(async (ctx) => ctx.db.system.query(QUEUE).collect())).toHaveLength(2);

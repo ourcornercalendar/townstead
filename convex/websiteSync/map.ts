@@ -33,6 +33,7 @@ export interface SyncContact {
   description?: string;
   notes?: string;
   isDeleted?: boolean;
+  showOnWebsite?: boolean;
 }
 
 export interface ProfilePhoto {

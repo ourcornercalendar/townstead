@@ -66,6 +66,9 @@ function fakeWebsite(options: { rows?: Record<string, unknown>[]; failWith?: num
 const makeHarness = () => convexTest(schema, modules);
 type Harness = ReturnType<typeof makeHarness>;
 
+// An advertiser Joyce has chosen to show. The push refuses to create anything
+// for a contact that is not marked, which is the point of chosen.test.ts;
+// these tests are about what it does for one that is.
 const contactArgs = {
   orgId: "org_1",
   company: "Pinot's Palette",
@@ -73,6 +76,7 @@ const contactArgs = {
   lastName: "Smith",
   email: "jane@pinots.example",
   phone: "916-555-0100",
+  showOnWebsite: true,
 };
 
 /**
