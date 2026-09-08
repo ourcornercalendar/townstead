@@ -23,6 +23,24 @@ function syncToWebsite(ctx: MutationCtx, contactId: Id<"contacts">) {
   });
 }
 
+/**
+ * Is this save worth telling the website about?
+ *
+ * The contact list is a sales list built over years — prospects, one-off
+ * customers from 2023, people who never bought. Only the advertisers Joyce
+ * has marked belong in the public directory, so an ordinary save of anyone
+ * else should not reach the website at all.
+ *
+ * The exception is the save that *removes* the mark. That one has to go
+ * across, or a business Joyce just took off the website would stay on it.
+ */
+function websiteCares(
+  next: boolean | undefined,
+  previous?: boolean | undefined
+): boolean {
+  return next === true || previous === true;
+}
+
 const addressValidator = v.optional(
   v.object({
     street: v.optional(v.string()),
@@ -53,6 +71,7 @@ const contactFields = {
   notes: v.optional(v.string()),
   customerSince: v.optional(v.number()),
   addressBookIds: v.optional(v.array(v.id("addressBooks"))),
+  showOnWebsite: v.optional(v.boolean()),
 };
 
 function buildSearchText(fields: {
@@ -116,7 +135,7 @@ export const create = mutation({
       isDeleted: false,
       updatedAt: Date.now(),
     });
-    await syncToWebsite(ctx, id);
+    if (websiteCares(args.showOnWebsite)) await syncToWebsite(ctx, id);
     return id;
   },
 });
@@ -160,21 +179,25 @@ export const update = mutation({
       searchText,
       updatedAt: Date.now(),
     });
-    await syncToWebsite(ctx, id);
+    if (websiteCares(fields.showOnWebsite, doc.showOnWebsite)) {
+      await syncToWebsite(ctx, id);
+    }
   },
 });
 
 export const softDelete = mutation({
   args: { id: v.id("contacts") },
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.id);
     await ctx.db.patch(args.id, {
       email: undefined,
       isDeleted: true,
     });
     // The website's copy is hidden, not deleted. It may carry photos, hours
     // and a description written on that side, and none of that is this sync's
-    // to throw away.
-    await syncToWebsite(ctx, args.id);
+    // to throw away. An advertiser who was never shown on the website has
+    // nothing there to hide.
+    if (websiteCares(doc?.showOnWebsite)) await syncToWebsite(ctx, args.id);
   },
 });
 
