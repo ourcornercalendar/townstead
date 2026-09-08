@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Info, CalendarDays, DollarSign } from "lucide-react";
 import { PaymentScheduleModal } from "@/components/admin/payment-schedule-modal";
 import { RecordPaymentSheet } from "@/components/admin/record-payment-sheet";
+import { byDisplayName } from "@/lib/sort-names";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 export interface OwedPaymentRow {
@@ -65,6 +66,10 @@ function ContactCell({ row }: { row: { original: OwedPaymentRow } }) {
 export const owedPaymentColumns: ColumnDef<OwedPaymentRow>[] = [
   {
     accessorKey: "contactName",
+    // The cell shows the company when there is one, so the sort has to use
+    // the same name. Sorting by contactName while displaying company made an
+    // ordered list look unordered.
+    sortingFn: (a, b) => byDisplayName(a.original, b.original),
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Contact" />
     ),
