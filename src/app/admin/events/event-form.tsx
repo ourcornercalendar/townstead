@@ -57,6 +57,13 @@ import {
   type EventScheduleType,
 } from "@/lib/events/recurrence";
 
+/** The three bands a printed calendar square is divided into. */
+const PRINT_PLACEMENTS = [
+  { value: "TOP", label: "Top" },
+  { value: "MIDDLE", label: "Middle" },
+  { value: "BOTTOM", label: "Bottom" },
+] as const;
+
 const SCHEDULE_HELP = [
   {
     title: "Single-Day Event",
@@ -146,8 +153,8 @@ export function EventForm({
       monthlyOrdinal: "FIRST",
       monthlyWeekday: "MONDAY",
       monthlyMonthSelector: "EVERY",
-      startTime: "",
-      endTime: "",
+      printPlacement: "TOP",
+      isScusd: false,
       isYearly: false,
       calendarEditionIds: [],
     },
@@ -172,8 +179,8 @@ export function EventForm({
         monthlyOrdinal: editing.monthlyOrdinal ?? "FIRST",
         monthlyWeekday: editing.monthlyWeekday ?? "MONDAY",
         monthlyMonthSelector: editing.monthlyMonthSelector ?? "EVERY",
-        startTime: editing.startTime ?? "",
-        endTime: editing.endTime ?? "",
+        printPlacement: editing.printPlacement ?? "TOP",
+        isScusd: editing.isScusd ?? false,
         isYearly: editing.isYearly ?? false,
         calendarEditionIds: (editing.calendarEditionIds as string[]) ?? [],
       });
@@ -190,8 +197,8 @@ export function EventForm({
         monthlyOrdinal: "FIRST",
         monthlyWeekday: "MONDAY",
         monthlyMonthSelector: "EVERY",
-        startTime: "",
-        endTime: "",
+        printPlacement: "TOP",
+        isScusd: false,
         isYearly: false,
         calendarEditionIds: [],
       });
@@ -249,8 +256,8 @@ export function EventForm({
           values.scheduleType === "DAILY_RANGE"
             ? values.endsOn ?? values.endDate
             : undefined,
-        startTime: values.startTime || undefined,
-        endTime: values.endTime || undefined,
+        printPlacement: values.printPlacement ?? "TOP",
+        isScusd: values.isScusd ?? false,
         isYearly:
           values.scheduleType === "MONTHLY_DAY" ||
           values.scheduleType === "MONTHLY_ORDINAL_WEEKDAY"
@@ -604,29 +611,80 @@ export function EventForm({
                   />
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/*
+                Where this event sits in the printed calendar square, and
+                whether it prints red.
+
+                The Start Time and End Time fields used to be here. They came
+                out because they were never printed and were cluttering the
+                form Joyce fills in for every date. Times a member of the
+                public submits with their own event are untouched, and still
+                show on the website.
+              */}
+              <div className="rounded-md border p-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium">On the printed calendar</p>
+                  <p className="text-sm text-muted-foreground">
+                    The name prints in bold, the description underneath it in
+                    regular.
+                  </p>
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="startTime"
+                  name="printPlacement"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Start Time</FormLabel>
+                      <FormLabel>Where in the square</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <div className="flex gap-2">
+                          {PRINT_PLACEMENTS.map((option) => {
+                            const active = (field.value ?? "TOP") === option.value;
+                            return (
+                              <Button
+                                key={option.value}
+                                type="button"
+                                variant={active ? "default" : "outline"}
+                                size="sm"
+                                aria-pressed={active}
+                                onClick={() => field.onChange(option.value)}
+                              >
+                                {option.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
                       </FormControl>
+                      <p className="text-sm text-muted-foreground">
+                        Two events set to the same spot print one under the
+                        other, in the order they were added.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
-                  name="endTime"
+                  name="isScusd"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Time</FormLabel>
+                    <FormItem className="flex items-start gap-3">
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <Checkbox
+                          id="isScusd"
+                          checked={field.value ?? false}
+                          onCheckedChange={(v) => field.onChange(v === true)}
+                        />
                       </FormControl>
+                      <div>
+                        <FormLabel htmlFor="isScusd">
+                          School district date — print in red
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          The name and the description both print red, so
+                          families can pick school dates out of a full square.
+                        </p>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
