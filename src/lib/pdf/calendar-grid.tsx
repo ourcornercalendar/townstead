@@ -44,6 +44,9 @@ const PALETTE = {
   dayHeaderBg: "#e9e2c0",
   ink: "#1a1a1a",
   mutedInk: "#4a4a4a",
+  // School district dates. A red that still reads as red on newsprint and in
+  // one-colour photocopies, rather than a bright screen red that prints muddy.
+  scusd: "#c0140f",
 };
 
 const styles = StyleSheet.create({
@@ -120,14 +123,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "bold",
   },
+  // The three bands a square is divided into. Each takes an equal share of the
+  // height, so "middle" is genuinely the middle of the square rather than
+  // "after whatever happens to be above it".
+  //
+  // The top band is pushed down to clear the day number, which is drawn in the
+  // corner over the top of everything.
+  bandTop: {
+    flex: 1,
+    justifyContent: "flex-start",
+    paddingTop: 13,
+  },
+  bandMiddle: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  bandBottom: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   eventsList: {
-    marginTop: 14,
+    flexGrow: 1,
+    flexDirection: "column",
     paddingRight: 2,
   },
   eventItem: {
+    marginBottom: 1.5,
+  },
+  eventTitle: {
     fontSize: 8,
+    fontWeight: "bold",
     lineHeight: 1.2,
-    marginBottom: 1,
+  },
+  eventDescription: {
+    fontSize: 7.5,
+    lineHeight: 1.15,
+  },
+  scusdInk: {
+    color: PALETTE.scusd,
   },
   splitDayCell: {
     flex: 1,
@@ -152,18 +185,60 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
   },
+  splitEventsList: {
+    flexGrow: 1,
+    flexDirection: "column",
+    paddingTop: 9,
+  },
   splitEventItem: {
-    fontSize: 7,
-    lineHeight: 1.15,
     marginBottom: 0.5,
-    marginTop: 10,
+  },
+  splitEventTitle: {
+    fontSize: 7,
+    fontWeight: "bold",
+    lineHeight: 1.1,
+  },
+  splitEventDescription: {
+    fontSize: 6.5,
+    lineHeight: 1.1,
   },
 });
 
+/**
+ * One event as it appears on a printed square.
+ *
+ * The name is set in bold and the description follows in regular, because
+ * Joyce's designer is laying out a square about an inch across and the reader
+ * needs to find the name first. The time is not here at all: it was cluttering
+ * squares that have room for two lines, and where it matters it is on the
+ * website.
+ */
+type PrintedEvent = {
+  name: string;
+  description?: string;
+  placement: Placement;
+  scusd: boolean;
+};
+
+type Placement = "TOP" | "MIDDLE" | "BOTTOM";
+
+const PLACEMENTS: Placement[] = ["TOP", "MIDDLE", "BOTTOM"];
+
+/** Absent means the top -- where everything printed before there was a choice. */
+function placementOf(event: Doc<"events">): Placement {
+  const p = (event as { printPlacement?: string }).printPlacement;
+  return p === "MIDDLE" || p === "BOTTOM" ? p : "TOP";
+}
+
 type CalendarDayCell = {
   day: number | null;
-  events: string[];
+  events: PrintedEvent[];
 };
+
+/** The events for one band, in the order they were added. */
+function inBand(events: PrintedEvent[], band: Placement): PrintedEvent[] {
+  return events.filter((e) => e.placement === band);
+}
 
 function buildMonthCells(
   year: number,
@@ -173,7 +248,7 @@ function buildMonthCells(
   const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
-  const eventNamesByDay = new Map<number, string[]>();
+  const eventNamesByDay = new Map<number, PrintedEvent[]>();
   for (const event of events) {
     const occurrences = expandEventOccurrences(event, year);
     for (const occ of occurrences) {
@@ -181,7 +256,12 @@ function buildMonthCells(
       if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
       const day = d.getDate();
       if (!eventNamesByDay.has(day)) eventNamesByDay.set(day, []);
-      eventNamesByDay.get(day)!.push(event.name);
+      eventNamesByDay.get(day)!.push({
+        name: event.name,
+        description: event.description,
+        placement: placementOf(event),
+        scusd: (event as { isScusd?: boolean }).isScusd === true,
+      });
     }
   }
 
@@ -197,6 +277,32 @@ function buildMonthCells(
   return { cells, needsSplit };
 }
 
+/** What react-pdf accepts as a style, without naming its internal types. */
+type PdfStyle = NonNullable<React.ComponentProps<typeof View>["style"]>;
+
+/** One event: name in bold, description beneath it in regular. */
+function EventLines({
+  event,
+  titleStyle,
+  descriptionStyle,
+  itemStyle,
+}: {
+  event: PrintedEvent;
+  titleStyle: PdfStyle;
+  descriptionStyle: PdfStyle;
+  itemStyle: PdfStyle;
+}) {
+  const ink = event.scusd ? styles.scusdInk : {};
+  return (
+    <View style={itemStyle}>
+      <Text style={[titleStyle, ink]}>{event.name}</Text>
+      {event.description ? (
+        <Text style={[descriptionStyle, ink]}>{event.description}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 function DayCell({
   cell,
   isLast,
@@ -204,20 +310,35 @@ function DayCell({
   cell: CalendarDayCell;
   isLast: boolean;
 }) {
+  const bandStyles: Record<Placement, PdfStyle> = {
+    TOP: styles.bandTop,
+    MIDDLE: styles.bandMiddle,
+    BOTTOM: styles.bandBottom,
+  };
+
   return (
     <View style={[styles.dayCell, isLast ? styles.dayCellLast : {}]}>
       {cell.day !== null && (
         <>
           <Text style={styles.dayNumber}>{cell.day}</Text>
-          {cell.events.length > 0 && (
-            <View style={styles.eventsList}>
-              {cell.events.map((name, idx) => (
-                <Text key={idx} style={styles.eventItem}>
-                  • {name}
-                </Text>
-              ))}
-            </View>
-          )}
+          {/* All three bands are always drawn, even when empty. That is what
+              holds an event placed at the bottom actually at the bottom
+              rather than immediately under the one above it. */}
+          <View style={styles.eventsList}>
+            {PLACEMENTS.map((band) => (
+              <View key={band} style={bandStyles[band]}>
+                {inBand(cell.events, band).map((event, idx) => (
+                  <EventLines
+                    key={idx}
+                    event={event}
+                    itemStyle={styles.eventItem}
+                    titleStyle={styles.eventTitle}
+                    descriptionStyle={styles.eventDescription}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
         </>
       )}
     </View>
@@ -233,20 +354,33 @@ function SplitDayCell({
   bottomCell: CalendarDayCell;
   isLast: boolean;
 }) {
-  const renderHalf = (cell: CalendarDayCell, isTop: boolean) => (
-    <View style={[styles.splitHalf, isTop ? styles.splitHalfTop : {}]}>
-      {cell.day !== null && (
-        <>
-          <Text style={styles.splitDayNumber}>{cell.day}</Text>
-          {cell.events.slice(0, 3).map((name, idx) => (
-            <Text key={idx} style={styles.splitEventItem}>
-              • {name}
-            </Text>
-          ))}
-        </>
-      )}
-    </View>
-  );
+  // A squeezed square -- the fifth and sixth weeks share one cell -- so the
+  // three bands would be a couple of millimetres each and mean nothing. The
+  // events are listed in placement order instead, which keeps the same
+  // sequence without pretending to a precision the space does not allow.
+  const renderHalf = (cell: CalendarDayCell, isTop: boolean) => {
+    const ordered = PLACEMENTS.flatMap((band) => inBand(cell.events, band));
+    return (
+      <View style={[styles.splitHalf, isTop ? styles.splitHalfTop : {}]}>
+        {cell.day !== null && (
+          <>
+            <Text style={styles.splitDayNumber}>{cell.day}</Text>
+            <View style={styles.splitEventsList}>
+              {ordered.slice(0, 3).map((event, idx) => (
+                <EventLines
+                  key={idx}
+                  event={event}
+                  itemStyle={styles.splitEventItem}
+                  titleStyle={styles.splitEventTitle}
+                  descriptionStyle={styles.splitEventDescription}
+                />
+              ))}
+            </View>
+          </>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.splitDayCell, isLast ? styles.dayCellLast : {}]}>
