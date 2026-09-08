@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "../../../../../convex/_generated/api";
 import { toast } from "sonner";
 import { useOrg } from "@/hooks/use-org";
+import { useDefaultYear } from "@/hooks/use-default-year";
 import { PageHeader } from "@/components/shared/page-header";
 import { StepForm, type Step } from "@/components/shared/step-form";
 import { SelectContact } from "./steps/select-contact";
@@ -112,6 +113,7 @@ const defaultPaymentTerms: PaymentTermsFormValues = {
 
 export default function NewPurchasePage() {
   const { orgId } = useOrg();
+  const { defaultYear } = useDefaultYear();
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillContactId = searchParams.get("contactId");
@@ -133,7 +135,9 @@ export default function NewPurchasePage() {
     contactLabel: "",
     calendarEditionIds: [],
     editionNames: [],
-    year: new Date().getFullYear(),
+    // The edition being sold, not the one on the wall. A new sale in
+    // September 2026 is for the 2027 calendar.
+    year: defaultYear,
     adSelections: [],
     slotAssignments: [],
     paymentTerms: defaultPaymentTerms,
