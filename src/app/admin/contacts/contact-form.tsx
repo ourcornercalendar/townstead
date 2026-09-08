@@ -205,6 +205,7 @@ export function ContactForm({
       notes: "",
       customerSince: undefined,
       addressBookIds: [],
+      showOnWebsite: false,
     },
   });
 
@@ -235,6 +236,7 @@ export function ContactForm({
         notes: editing.notes ?? "",
         customerSince: editing.customerSince,
         addressBookIds: (editing.addressBookIds as string[]) ?? [],
+        showOnWebsite: editing.showOnWebsite ?? false,
       });
       setLogoFileId(editing.logoFileId ?? undefined);
     } else {
@@ -263,6 +265,7 @@ export function ContactForm({
         notes: "",
         customerSince: undefined,
         addressBookIds: [],
+        showOnWebsite: false,
       });
       setLogoFileId(undefined);
     }
@@ -327,6 +330,7 @@ export function ContactForm({
           values.addressBookIds && values.addressBookIds.length > 0
             ? (values.addressBookIds as Id<"addressBooks">[])
             : undefined,
+        showOnWebsite: values.showOnWebsite ?? false,
         logoFileId,
       };
 
@@ -595,6 +599,49 @@ export function ContactForm({
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/*
+                Whether this advertiser belongs in the public business
+                directory on ourcornercalendar.com.
+
+                Off by default, and deliberately so: this contact list is a
+                sales list built over years, and most of it is prospects and
+                lapsed customers. Ticking this is Joyce saying "this one is
+                current", which is a judgement no rule in the data can make
+                for her.
+
+                Ticking it sends the business across hidden -- it still has
+                to be published on the website. Unticking it takes it back
+                off public view without deleting anything written there.
+              */}
+              <FormField
+                control={form.control}
+                name="showOnWebsite"
+                render={({ field }) => (
+                  <FormItem className="rounded-md border p-4">
+                    <div className="flex items-start gap-3">
+                      <FormControl>
+                        <Checkbox
+                          id="showOnWebsite"
+                          checked={field.value ?? false}
+                          onCheckedChange={(val) => field.onChange(val === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1">
+                        <Label htmlFor="showOnWebsite" className="font-medium">
+                          Show in the business directory on ourcornercalendar.com
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          {field.value
+                            ? "This business is sent to the website. It arrives hidden — publish it there when the listing looks right."
+                            : "Leave this off for prospects and past customers. They stay in your records here and never reach the website."}
+                        </p>
+                      </div>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
