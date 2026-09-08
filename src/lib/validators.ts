@@ -61,6 +61,7 @@ export const contactSchema = z.object({
   notes: z.string().optional(),
   customerSince: z.number().optional(),
   addressBookIds: z.array(z.string()).optional(),
+  showOnWebsite: z.boolean().optional(),
 });
 
 export const purchaseSchema = z.object({
