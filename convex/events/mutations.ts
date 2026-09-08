@@ -51,6 +51,10 @@ export const create = mutation({
       v.union(v.literal("EVERY"), v.literal("EVEN"), v.literal("ODD"))
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
+    printPlacement: v.optional(
+      v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
+    ),
+    isScusd: v.optional(v.boolean()),
     imageFileId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -110,6 +114,10 @@ export const update = mutation({
       v.union(v.literal("EVERY"), v.literal("EVEN"), v.literal("ODD"))
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
+    printPlacement: v.optional(
+      v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
+    ),
+    isScusd: v.optional(v.boolean()),
     imageFileId: v.optional(v.id("_storage")),
     isApproved: v.optional(v.boolean()),
   },
