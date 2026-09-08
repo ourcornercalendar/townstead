@@ -293,6 +293,20 @@ export default defineSchema({
       v.union(v.literal("EVERY"), v.literal("EVEN"), v.literal("ODD"))
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
+
+    // Where in the printed calendar square this event sits. The square is
+    // divided into three bands and this picks one; absent means the top,
+    // which is where everything printed before there was a choice.
+    printPlacement: v.optional(
+      v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
+    ),
+    // Sacramento City Unified School District dates, which Joyce prints in red
+    // so families can pick them out of a dense square at a glance. A flag she
+    // sets rather than a guess from the name: the day someone types "Sac City
+    // Unified" instead, a name rule would fail silently and the date would
+    // print black with nothing to show it had.
+    isScusd: v.optional(v.boolean()),
+
     // Deprecated — kept as optional to allow schema push against legacy docs.
     // Run `events.migration.migrateCommunityIdsToEditions` to backfill and
     // clear, then this field can be removed.
