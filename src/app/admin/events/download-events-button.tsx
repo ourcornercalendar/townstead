@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useDefaultYear } from "@/hooks/use-default-year";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ import {
 import { Download } from "lucide-react";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 
+// Falls back to the current year only when a typed year is unreadable;
+// the value the field opens on is the calendar being sold, below.
 const currentYear = new Date().getFullYear();
 
 function clampYear(n: number): number {
@@ -35,8 +38,9 @@ export function DownloadEventsButton({
 }: {
   calendarEditions: Doc<"calendarEditions">[];
 }) {
+  const { defaultYear } = useDefaultYear();
   const [open, setOpen] = useState(false);
-  const [yearInput, setYearInput] = useState(String(currentYear));
+  const [yearInput, setYearInput] = useState(String(defaultYear));
   const [editionSelect, setEditionSelect] = useState<string>("all");
 
   const handleDownload = () => {

@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api";
 import { toast } from "sonner";
 import { useOrg } from "@/hooks/use-org";
+import { useDefaultYear } from "@/hooks/use-default-year";
 import { useStableNow } from "@/hooks/use-stable-now";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -76,6 +77,7 @@ export default function EditPurchasePage() {
   const params = useParams();
   const router = useRouter();
   const { orgId } = useOrg();
+  const { defaultYear } = useDefaultYear();
   const id = params.id as Id<"purchases">;
   const now = useStableNow();
 
@@ -92,7 +94,9 @@ export default function EditPurchasePage() {
     contactLabel: "",
     calendarEditionIds: [],
     editionNames: [],
-    year: new Date().getFullYear(),
+    // Replaced by the purchase's own year once it loads; this is only what
+    // the form holds for the moment before that.
+    year: defaultYear,
     adSelections: [],
     slotAssignments: [],
     paymentTerms: {
