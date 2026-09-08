@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useOrg } from "@/hooks/use-org";
+import { useDefaultYear } from "@/hooks/use-default-year";
 import { monthlyPricesSchema } from "@/lib/validators";
 import type { z } from "zod";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -68,10 +69,12 @@ export function AdPricingForm({
   advertisement,
 }: AdPricingFormProps) {
   const { orgId, isReady } = useOrg();
+  const { defaultYear } = useDefaultYear();
   const upsertMutation = useMutation(api.adPricing.mutations.upsert);
   const [isPending, setIsPending] = useState(false);
   const [selectedEdition, setSelectedEdition] = useState<string>("");
-  const [year, setYear] = useState(new Date().getFullYear());
+  // Pricing is being set for the calendar being sold, not the one on the wall.
+  const [year, setYear] = useState(defaultYear);
   const [setAllValue, setSetAllValue] = useState("");
 
   const editions = useQuery(
@@ -110,11 +113,11 @@ export function AdPricingForm({
   useEffect(() => {
     if (!open) {
       setSelectedEdition("");
-      setYear(new Date().getFullYear());
+      setYear(defaultYear);
       setSetAllValue("");
       form.reset(DEFAULT_PRICES);
     }
-  }, [open, form]);
+  }, [open, form, defaultYear]);
 
   const handleSetAll = () => {
     const value = parseFloat(setAllValue);
@@ -189,7 +192,7 @@ export function AdPricingForm({
                 min={2000}
                 max={2100}
                 value={year}
-                onChange={(e) => setYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
+                onChange={(e) => setYear(parseInt(e.target.value, 10) || defaultYear)}
               />
             </div>
           </div>
