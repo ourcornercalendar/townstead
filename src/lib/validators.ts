@@ -119,8 +119,14 @@ export const eventSchema = z.object({
   description: z.string().optional(),
   date: z.number(),
   endDate: z.number().optional(),
+  // Times are no longer collected on the admin event form -- they were never
+  // printed on the calendar. They stay in the schema and on the public
+  // submission form, where a member of the public can still give one and the
+  // website still shows it.
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  printPlacement: z.enum(["TOP", "MIDDLE", "BOTTOM"]).optional(),
+  isScusd: z.boolean().optional(),
   isYearly: z.boolean().optional(),
   scheduleType: z
     .enum([
