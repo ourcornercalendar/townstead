@@ -76,6 +76,7 @@ export default function ThisMonthPage() {
         searchPlaceholder="Search by contact..."
         emptyTitle="No scheduled payments"
         emptyDescription="No payments due or overdue this month."
+        initialSorting={[{ id: "contactName", desc: false }]}
         enableRowSelection
         getRowId={(row) => row._id}
         rowSelection={rowSelection}

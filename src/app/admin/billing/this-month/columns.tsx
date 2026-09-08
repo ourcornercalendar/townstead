@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from "@/components/shared/data-table-column-hea
 import { RecordPaymentSheet } from "@/components/admin/record-payment-sheet";
 import { PaymentScheduleModal } from "@/components/admin/payment-schedule-modal";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { byDisplayName } from "@/lib/sort-names";
 import Link from "next/link";
 import { DollarSign, CalendarDays } from "lucide-react";
 import { useState } from "react";
@@ -72,6 +73,11 @@ function ContactCell({ row }: { row: { original: ThisMonthRow } }) {
 export const thisMonthColumns: ColumnDef<ThisMonthRow>[] = [
   {
     accessorKey: "contactName",
+    // Compared the way a reader would file it, not the way bytes compare.
+    // A plain string comparison puts every capital letter before every small
+    // one, so "apex Signs" would sit after "Zeppole Bakery", and accented
+    // names would be exiled to the end of the list.
+    sortingFn: (a, b) => byDisplayName(a.original, b.original),
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Contact" />
     ),

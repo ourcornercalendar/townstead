@@ -20,6 +20,7 @@ import { DataTableColumnHeader } from "@/components/shared/data-table-column-hea
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
+import { byDisplayName } from "@/lib/sort-names";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface PurchaseRow {
@@ -210,11 +211,7 @@ export function purchaseColumns({
     {
       id: "contactName",
       accessorFn: (row) => `${row.company || row.contactName} ${row.contactName}`,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original.company || rowA.original.contactName).toLowerCase();
-        const b = (rowB.original.company || rowB.original.contactName).toLowerCase();
-        return a.localeCompare(b);
-      },
+      sortingFn: (rowA, rowB) => byDisplayName(rowA.original, rowB.original),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Contact" />
       ),

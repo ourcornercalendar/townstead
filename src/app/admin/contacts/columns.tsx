@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTableColumnHeader } from "@/components/shared/data-table-column-header";
+import { byDisplayName } from "@/lib/sort-names";
 import { toast } from "sonner";
 
 type Contact = Doc<"contacts">;
@@ -118,6 +119,19 @@ export function columns({
           .join(" ");
         return `${row.company || contactName} ${contactName}`;
       },
+      // Filed under the business, or the person when there is no business --
+      // the same rule the other lists use, so the two read the same way.
+      sortingFn: (a, b) =>
+        byDisplayName(
+          {
+            company: a.original.company,
+            contactName: [a.original.firstName, a.original.lastName].filter(Boolean).join(" "),
+          },
+          {
+            company: b.original.company,
+            contactName: [b.original.firstName, b.original.lastName].filter(Boolean).join(" "),
+          }
+        ),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Company" />
       ),
