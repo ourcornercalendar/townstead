@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requireOrg, requireOwnDoc, requirePermission } from "../auth.helpers";
+import { requireAuth, requireOrg, requireOwnDoc, requireOrgMemberPermission } from "../auth.helpers";
 import { PERMISSIONS } from "../permissions";
 
 export const create = mutation({
@@ -135,7 +135,7 @@ export const approve = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
     const { userId, orgId } = await requireAuth(ctx);
-    await requirePermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
+    await requireOrgMemberPermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
 
     const event = await ctx.db.get(args.id);
     if (!event || event.orgId !== orgId) throw new Error("Not found");
@@ -151,7 +151,7 @@ export const reject = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, orgId } = await requireAuth(ctx);
-    await requirePermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
+    await requireOrgMemberPermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
 
     const event = await ctx.db.get(args.id);
     if (!event || event.orgId !== orgId) throw new Error("Not found");

@@ -380,3 +380,105 @@ describe("the team list stays inside one organisation", () => {
     ).rejects.toThrow(/Invite not found/);
   });
 });
+
+describe("approving what she submits", () => {
+  async function submittedEvent() {
+    const base = convexTest(schema, modules);
+    await base.run(async (ctx) => {
+      await ctx.db.insert("tenantBranding", {
+        orgId: ORG,
+        orgSlug: "ourcorner",
+        siteName: "Our Corner",
+      });
+    });
+    const token = await base
+      .withIdentity(ADMIN)
+      .mutation(api.teamInvites.mutations.create, {
+        email: "mad@example.com",
+        permissions: ["events:submit"],
+      });
+    const asMadalynn = base.withIdentity({
+      subject: "madalynn",
+      email: "mad@example.com",
+    });
+    await asMadalynn.mutation(api.teamInvites.mutations.redeem, { token });
+    const id = await asMadalynn.mutation(api.public.mutations.submitEvent, {
+      orgSlug: "ourcorner",
+      name: "Farmers Market",
+      date: Date.now(),
+    });
+    return { base, asMadalynn, id };
+  }
+
+  it("the event waits, and the admin can see it", async () => {
+    const { base, id } = await submittedEvent();
+    const all = await base
+      .withIdentity(ADMIN)
+      .query(api.events.queries.list, { orgId: ORG });
+    const found = all.find((e) => e._id === id);
+    expect(found).toBeDefined();
+    expect(found!.isApproved).toBe(false);
+    expect(found!.submittedBy).toBe("madalynn");
+  });
+
+  it("shows up in the approvals queue, and on the sidebar count", async () => {
+    const { base, id } = await submittedEvent();
+    const admin = base.withIdentity(ADMIN);
+    const pending = await admin.query(api.approvals.queries.listPending, {});
+    expect(pending.events.map((e) => e._id)).toContain(id);
+    const counts = await admin.query(api.approvals.queries.countPending, {});
+    expect(counts.total).toBe(1);
+  });
+
+  it("the admin can approve it", async () => {
+    // This failed before `requireOrgMemberPermission` existed: nothing writes
+    // an orgPermissions row for the person who owns the organisation, so the
+    // check fell through to the public defaults, which do not include
+    // approving. The Approve button errored for the one person it was for.
+    const { base, id } = await submittedEvent();
+    await base
+      .withIdentity(ADMIN)
+      .mutation(api.events.mutations.approve, { id });
+    const event = await base.run(async (ctx) => ctx.db.get(id));
+    expect(event!.isApproved).toBe(true);
+  });
+
+  it("the admin can edit it", async () => {
+    const { base, id } = await submittedEvent();
+    await base.withIdentity(ADMIN).mutation(api.events.mutations.update, {
+      id,
+      name: "Farmers Market (corrected)",
+      date: Date.now(),
+    });
+    const event = await base.run(async (ctx) => ctx.db.get(id));
+    expect(event!.name).toBe("Farmers Market (corrected)");
+  });
+
+  it("the admin can reject it, and it leaves the list", async () => {
+    const { base, id } = await submittedEvent();
+    await base.withIdentity(ADMIN).mutation(api.events.mutations.reject, { id });
+    const all = await base
+      .withIdentity(ADMIN)
+      .query(api.events.queries.list, { orgId: ORG });
+    expect(all.find((e) => e._id === id)).toBeUndefined();
+  });
+
+  it("she cannot approve her own submission", async () => {
+    // The other half of the fix: a member holding a limited grant is still
+    // held to it. She has events:submit and nothing else.
+    const { asMadalynn, id } = await submittedEvent();
+    await expect(
+      asMadalynn.mutation(api.events.mutations.approve, { id })
+    ).rejects.toThrow(/No organization selected/);
+  });
+
+  it("a restricted member of the org cannot approve either", async () => {
+    // Belt and braces: even if someone with a limited grant were also added
+    // to the Clerk organisation, the grant still governs.
+    const { base, id } = await submittedEvent();
+    const insider = base.withIdentity({ subject: "madalynn", orgId: ORG });
+    await expect(
+      insider.mutation(api.events.mutations.approve, { id })
+    ).rejects.toThrow(/Permission denied: events:approve/);
+  });
+});
