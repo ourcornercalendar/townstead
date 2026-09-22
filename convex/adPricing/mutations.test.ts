@@ -18,7 +18,7 @@ const updatedPrices = {
 
 describe("adPricing.mutations.upsert", () => {
   it("creates a new pricing record when none exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {
@@ -58,7 +58,7 @@ describe("adPricing.mutations.upsert", () => {
   });
 
   it("updates existing pricing record when one exists for same combo", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {
@@ -104,7 +104,7 @@ describe("adPricing.mutations.upsert", () => {
   });
 
   it("creates separate records for different years", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {

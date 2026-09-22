@@ -9,7 +9,7 @@ const ORG_B = "org_b";
 
 describe("getOrgSettings", () => {
   it("returns null when no settings exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     const result = await t.query(api.settings.queries.getOrgSettings, {
       orgId: ORG_A,
@@ -19,7 +19,7 @@ describe("getOrgSettings", () => {
   });
 
   it("returns settings for the org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("orgSettings", {
@@ -42,7 +42,7 @@ describe("getOrgSettings", () => {
   });
 
   it("tenant isolation — org B cannot see org A settings", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("orgSettings", {

@@ -1,5 +1,6 @@
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireOrg, requireOwnDoc } from "../auth.helpers";
 
 export const create = mutation({
   args: {
@@ -13,6 +14,7 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     return await ctx.db.insert("categories", {
       ...args,
       isDeleted: false,
@@ -26,6 +28,9 @@ export const update = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const { id, ...fields } = args;
     await ctx.db.patch(id, fields);
   },
@@ -34,6 +39,9 @@ export const update = mutation({
 export const softDelete = mutation({
   args: { id: v.id("categories") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     await ctx.db.patch(args.id, { isDeleted: true });
   },
 });

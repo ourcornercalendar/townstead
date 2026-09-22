@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("adSlots.queries.listByAdPurchase", () => {
   it("returns slots for an ad purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adPurchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -73,7 +73,7 @@ describe("adSlots.queries.listByAdPurchase", () => {
   });
 
   it("returns empty when no slots exist for ad purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adPurchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -121,7 +121,7 @@ describe("adSlots.queries.listByAdPurchase", () => {
 
 describe("adSlots.queries.getSlotAvailability", () => {
   it("returns taken slots with occupant info", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -195,7 +195,7 @@ describe("adSlots.queries.getSlotAvailability", () => {
   });
 
   it("returns empty takenSlots when no slots are occupied", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const editionId = await ctx.db.insert("calendarEditions", {
@@ -227,7 +227,7 @@ describe("adSlots.queries.getSlotAvailability", () => {
   });
 
   it("excludes slots from excludePurchaseId", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId, excludePurchaseId } = await t.run(async (ctx) => {
       const contact1 = await ctx.db.insert("contacts", {
@@ -326,7 +326,7 @@ describe("adSlots.queries.getSlotAvailability", () => {
   });
 
   it("skips slots without slotNumber from takenSlots map", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

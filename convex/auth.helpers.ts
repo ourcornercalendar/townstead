@@ -35,6 +35,66 @@ export async function requirePublicAuth(
 }
 
 /**
+ * Authenticates, and confirms the caller actually belongs to the organisation
+ * they are asking about.
+ *
+ * Nearly every admin query and mutation takes `orgId` as an argument. Without
+ * this, that argument is simply believed: a Convex `query` or `mutation` is a
+ * public endpoint, and the deployment URL ships in the client bundle, so
+ * anything that does not check the caller's identity can be called by anyone
+ * who opens the site and passes whatever orgId they like.
+ */
+export async function requireOrg(
+  ctx: AuthCtx,
+  orgId: string
+): Promise<OrgAuth> {
+  const auth = await requireAuth(ctx);
+  if (auth.orgId !== orgId) {
+    throw new Error("Not authorized for this organization");
+  }
+  return auth;
+}
+
+/**
+ * Does this document belong to the caller's organisation?
+ *
+ * For queries. A query that used to return null for a missing id must keep
+ * doing so -- throwing instead would turn "not found" into an error state in
+ * every screen that checks for null. So this reports, and the caller decides
+ * what empty looks like.
+ */
+export async function isOwnDoc(
+  ctx: AuthCtx,
+  doc: { orgId?: string } | null
+): Promise<boolean> {
+  const { orgId } = await requireAuth(ctx);
+  if (!doc) return false;
+  return doc.orgId === undefined || doc.orgId === orgId;
+}
+
+/**
+ * Authenticates and confirms a document belongs to the caller's organisation.
+ *
+ * For the handlers that take only a document id. Looking a record up by id
+ * alone crosses org boundaries by default -- the id is the only thing asked
+ * for, so any id works.
+ */
+export async function requireOwnDoc<T extends { orgId?: string }>(
+  ctx: AuthCtx,
+  doc: T | null
+): Promise<T | null> {
+  const { orgId } = await requireAuth(ctx);
+  // A document that exists but belongs to someone else is refused. A document
+  // that does not exist is passed straight through, so the handler's own
+  // "Contact not found" (or whatever it says) still fires with its own
+  // wording -- this guard is here to add a check, not to take one over.
+  if (doc && doc.orgId !== undefined && doc.orgId !== orgId) {
+    throw new Error("Not found");
+  }
+  return doc;
+}
+
+/**
  * Checks whether a user has a specific permission within an org.
  *
  * Resolution order:

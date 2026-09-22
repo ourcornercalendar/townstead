@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { requireOwnDoc } from "../auth.helpers";
 
 export const waiveLateFee = mutation({
   args: {
@@ -8,6 +9,9 @@ export const waiveLateFee = mutation({
     waived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const sp = await ctx.db.get(args.id);
     await ctx.db.patch(args.id, { lateFeeWaived: args.waived });
 

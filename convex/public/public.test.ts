@@ -8,8 +8,9 @@ import { PERMISSIONS } from "../permissions";
 describe("public", () => {
   it("getHomepageData returns null for unknown orgSlug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-    const result = await t.query(api.public.queries.getHomepageData, {
+    const result = await asOrg.query(api.public.queries.getHomepageData, {
       orgSlug: "nonexistent",
       now: 1710000000000,
     });
@@ -18,6 +19,7 @@ describe("public", () => {
 
   it("getHomepageData returns branding and content for valid slug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -27,7 +29,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getHomepageData, {
+    const result = await asOrg.query(api.public.queries.getHomepageData, {
       orgSlug: "test-community",
       now: 1710000000000,
     });
@@ -39,8 +41,9 @@ describe("public", () => {
 
   it("tenant isolation — listEvents returns empty for unknown slug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-    const result = await t.query(api.public.queries.listEvents, {
+    const result = await asOrg.query(api.public.queries.listEvents, {
       orgSlug: "no-such-org",
     });
     expect(result).toHaveLength(0);
@@ -48,6 +51,7 @@ describe("public", () => {
 
   it("listEvents returns approved, non-deleted events for a valid slug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -78,7 +82,7 @@ describe("public", () => {
       });
     });
 
-    const events = await t.query(api.public.queries.listEvents, {
+    const events = await asOrg.query(api.public.queries.listEvents, {
       orgSlug: "events-org",
     });
     expect(events).toHaveLength(1);
@@ -87,6 +91,7 @@ describe("public", () => {
 
   it("getEvent returns null for unapproved events", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -98,12 +103,13 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getEvent, { id: eventId });
+    const result = await asOrg.query(api.public.queries.getEvent, { id: eventId });
     expect(result).toBeNull();
   });
 
   it("getEvent returns approved events", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -115,13 +121,14 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getEvent, { id: eventId });
+    const result = await asOrg.query(api.public.queries.getEvent, { id: eventId });
     expect(result).not.toBeNull();
     expect(result!.name).toBe("Approved Event");
   });
 
   it("getEvent returns imageUrl as null when no image is set", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -133,13 +140,14 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getEvent, { id: eventId });
+    const result = await asOrg.query(api.public.queries.getEvent, { id: eventId });
     expect(result).not.toBeNull();
     expect(result!.imageUrl).toBeNull();
   });
 
   it("listEvents returns imageUrl as null when no image is set", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -156,7 +164,7 @@ describe("public", () => {
       });
     });
 
-    const events = await t.query(api.public.queries.listEvents, {
+    const events = await asOrg.query(api.public.queries.listEvents, {
       orgSlug: "img-org",
     });
     expect(events).toHaveLength(1);
@@ -165,6 +173,7 @@ describe("public", () => {
 
   it("getHomepageData includes imageUrl on featured events", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -181,7 +190,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getHomepageData, {
+    const result = await asOrg.query(api.public.queries.getHomepageData, {
       orgSlug: "hp-org",
       now: Date.now(),
     });
@@ -617,6 +626,7 @@ describe("public", () => {
 
   it("listCoupons returns isSoldOut=true when quantityLimit is reached", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -645,7 +655,7 @@ describe("public", () => {
       });
     });
 
-    const results = await t.query(api.public.queries.listCoupons, {
+    const results = await asOrg.query(api.public.queries.listCoupons, {
       orgSlug: "soldout-org",
       now: Date.now(),
     });
@@ -656,6 +666,7 @@ describe("public", () => {
 
   it("listCoupons returns isSoldOut=false when quantityLimit is not reached", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -679,7 +690,7 @@ describe("public", () => {
       });
     });
 
-    const results = await t.query(api.public.queries.listCoupons, {
+    const results = await asOrg.query(api.public.queries.listCoupons, {
       orgSlug: "avail-org",
       now: Date.now(),
     });
@@ -690,6 +701,7 @@ describe("public", () => {
 
   it("getHomepageData returns logoUrl and heroImageUrl on branding", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -699,7 +711,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getHomepageData, {
+    const result = await asOrg.query(api.public.queries.getHomepageData, {
       orgSlug: "brand-org",
       now: Date.now(),
     });
@@ -712,6 +724,7 @@ describe("public", () => {
 
   it("listCommunities returns imageUrl for each community", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -733,7 +746,7 @@ describe("public", () => {
       });
     });
 
-    const communities = await t.query(api.public.queries.listCommunities, {
+    const communities = await asOrg.query(api.public.queries.listCommunities, {
       orgSlug: "com-org",
     });
     expect(communities).toHaveLength(1);
@@ -743,6 +756,7 @@ describe("public", () => {
 
   it("listCommunities excludes soft-deleted communities", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -771,7 +785,7 @@ describe("public", () => {
       });
     });
 
-    const communities = await t.query(api.public.queries.listCommunities, {
+    const communities = await asOrg.query(api.public.queries.listCommunities, {
       orgSlug: "del-org",
     });
     expect(communities).toHaveLength(1);
@@ -780,6 +794,7 @@ describe("public", () => {
 
   it("getCommunityBySlug returns imageUrl", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -801,7 +816,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getCommunityBySlug, {
+    const result = await asOrg.query(api.public.queries.getCommunityBySlug, {
       orgSlug: "cs-org",
       communitySlug: "slug-community",
     });
@@ -812,6 +827,7 @@ describe("public", () => {
 
   it("getCommunityBySlug returns null for unknown slug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -821,7 +837,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getCommunityBySlug, {
+    const result = await asOrg.query(api.public.queries.getCommunityBySlug, {
       orgSlug: "nf-org",
       communitySlug: "nonexistent",
     });
@@ -830,6 +846,7 @@ describe("public", () => {
 
   it("listPublicSites returns all tenants with public-safe fields", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -845,7 +862,7 @@ describe("public", () => {
       });
     });
 
-    const sites = await t.query(api.public.queries.listPublicSites, {});
+    const sites = await asOrg.query(api.public.queries.listPublicSites, {});
     expect(sites).toHaveLength(2);
     expect(sites[0]).toMatchObject({
       orgSlug: "alpha",
@@ -863,12 +880,14 @@ describe("public", () => {
 
   it("listPublicSites returns empty array when no tenants exist", async () => {
     const t = convexTest(schema, modules);
-    const sites = await t.query(api.public.queries.listPublicSites, {});
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
+    const sites = await asOrg.query(api.public.queries.listPublicSites, {});
     expect(sites).toHaveLength(0);
   });
 
   it("listPublicSites omits internal fields like orgId", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -878,7 +897,7 @@ describe("public", () => {
       });
     });
 
-    const sites = await t.query(api.public.queries.listPublicSites, {});
+    const sites = await asOrg.query(api.public.queries.listPublicSites, {});
     expect(sites).toHaveLength(1);
     const keys = Object.keys(sites[0]);
     expect(keys).not.toContain("orgId");
@@ -888,6 +907,7 @@ describe("public", () => {
 
   it("listBlogPosts returns published non-deleted posts", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -921,7 +941,7 @@ describe("public", () => {
       });
     });
 
-    const posts = await t.query(api.public.queries.listBlogPosts, {
+    const posts = await asOrg.query(api.public.queries.listBlogPosts, {
       orgSlug: "blog-org",
     });
     expect(posts).toHaveLength(1);
@@ -930,6 +950,7 @@ describe("public", () => {
 
   it("listBlogPosts returns featuredImageUrl as null when no image set", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -947,7 +968,7 @@ describe("public", () => {
       });
     });
 
-    const posts = await t.query(api.public.queries.listBlogPosts, {
+    const posts = await asOrg.query(api.public.queries.listBlogPosts, {
       orgSlug: "bi-org",
     });
     expect(posts).toHaveLength(1);
@@ -957,6 +978,7 @@ describe("public", () => {
 
   it("getBlogPost returns featuredImageUrl as null when no image set", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -974,7 +996,7 @@ describe("public", () => {
       });
     });
 
-    const post = await t.query(api.public.queries.getBlogPost, {
+    const post = await asOrg.query(api.public.queries.getBlogPost, {
       orgSlug: "bp-org",
       slug: "detail-post",
     });
@@ -985,6 +1007,7 @@ describe("public", () => {
 
   it("getBlogPost returns null for non-existent slug", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -994,7 +1017,7 @@ describe("public", () => {
       });
     });
 
-    const post = await t.query(api.public.queries.getBlogPost, {
+    const post = await asOrg.query(api.public.queries.getBlogPost, {
       orgSlug: "nf2-org",
       slug: "nonexistent",
     });
@@ -1003,6 +1026,7 @@ describe("public", () => {
 
   it("getHomepageData recentPosts include featuredImageUrl", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -1020,7 +1044,7 @@ describe("public", () => {
       });
     });
 
-    const result = await t.query(api.public.queries.getHomepageData, {
+    const result = await asOrg.query(api.public.queries.getHomepageData, {
       orgSlug: "rp-org",
       now: Date.now(),
     });

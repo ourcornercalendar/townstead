@@ -1,5 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireOrg, requireOwnDoc } from "../auth.helpers";
 
 export const create = mutation({
   args: {
@@ -9,6 +10,7 @@ export const create = mutation({
     communityId: v.optional(v.id("communities")),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const existing = await ctx.db
       .query("calendarEditions")
       .withIndex("by_orgId_and_code", (q) =>
@@ -50,6 +52,9 @@ export const update = mutation({
     removeCommunity: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const current = await ctx.db.get(args.id);
     if (!current) throw new Error("Calendar edition not found");
     if (args.code !== current.code) {
@@ -101,6 +106,9 @@ export const update = mutation({
 export const softDelete = mutation({
   args: { id: v.id("calendarEditions") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     await ctx.db.patch(args.id, { isDeleted: true });
   },
 });

@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requirePermission } from "../auth.helpers";
+import { requireAuth, requireOrg, requireOwnDoc, requirePermission } from "../auth.helpers";
 import { PERMISSIONS } from "../permissions";
 
 export const create = mutation({
@@ -58,6 +58,7 @@ export const create = mutation({
     imageFileId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     return await ctx.db.insert("events", {
       ...args,
       isApproved: true,
@@ -122,6 +123,9 @@ export const update = mutation({
     isApproved: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const { id, ...fields } = args;
     await ctx.db.patch(id, fields);
   },
@@ -159,6 +163,9 @@ export const reject = mutation({
 export const softDelete = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     await ctx.db.patch(args.id, { isDeleted: true });
   },
 });
@@ -166,6 +173,7 @@ export const softDelete = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAuth(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

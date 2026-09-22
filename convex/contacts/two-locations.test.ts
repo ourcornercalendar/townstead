@@ -23,7 +23,7 @@ const owner = {
 
 describe("one owner with more than one business", () => {
   it("lets a second location share the owner's email", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.contacts.mutations.create, {
       ...owner,
@@ -43,7 +43,7 @@ describe("one owner with more than one business", () => {
   });
 
   it("holds as many locations as the owner actually has", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     for (const where of ["West Sacramento", "Elk Grove", "Davis", "Folsom"]) {
       await t.mutation(api.contacts.mutations.create, {
         ...owner,
@@ -56,7 +56,7 @@ describe("one owner with more than one business", () => {
 
   it("still refuses the same business entered twice", async () => {
     // The mistake the check was originally for. Same company, same email.
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     await t.mutation(api.contacts.mutations.create, { ...owner, company: "Beach Hut Deli" });
 
     await expect(
@@ -65,7 +65,7 @@ describe("one owner with more than one business", () => {
   });
 
   it("treats casing and stray spaces as the same name", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     await t.mutation(api.contacts.mutations.create, { ...owner, company: "Beach Hut Deli" });
 
     await expect(
@@ -74,7 +74,7 @@ describe("one owner with more than one business", () => {
   });
 
   it("says what to do about it, not just that it failed", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     await t.mutation(api.contacts.mutations.create, { ...owner, company: "Beach Hut Deli" });
 
     await expect(
@@ -83,7 +83,7 @@ describe("one owner with more than one business", () => {
   });
 
   it("lets a rename keep the shared email", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     const first = await t.mutation(api.contacts.mutations.create, {
       ...owner,
       company: "Beach Hut Deli - West Sacramento",
@@ -107,7 +107,7 @@ describe("one owner with more than one business", () => {
   it("stops a rename that would collide with a sibling", async () => {
     // Renaming West Sacramento to "Elk Grove" would make two identical
     // advertisers, which is the thing worth refusing.
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     const first = await t.mutation(api.contacts.mutations.create, {
       ...owner,
       company: "Beach Hut Deli - West Sacramento",
@@ -128,7 +128,7 @@ describe("one owner with more than one business", () => {
   });
 
   it("still lets a business be saved with no email at all", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
     const a = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1", company: "Corner Florist", firstName: "Ann", lastName: "Lee",
     });
@@ -140,9 +140,11 @@ describe("one owner with more than one business", () => {
 
   it("keeps publishers apart", async () => {
     // The same email in another org is not this org's business.
-    const t = convexTest(schema, modules);
-    await t.mutation(api.contacts.mutations.create, { ...owner, company: "Beach Hut Deli" });
-    const other = await t.mutation(api.contacts.mutations.create, {
+    const base = convexTest(schema, modules);
+    const asOwnerOrg = base.withIdentity({ subject: "user_1", orgId: owner.orgId });
+    const asOtherOrg = base.withIdentity({ subject: "user_2", orgId: "org_2" });
+    await asOwnerOrg.mutation(api.contacts.mutations.create, { ...owner, company: "Beach Hut Deli" });
+    const other = await asOtherOrg.mutation(api.contacts.mutations.create, {
       ...owner, orgId: "org_2", company: "Beach Hut Deli",
     });
     expect(other).toBeDefined();
