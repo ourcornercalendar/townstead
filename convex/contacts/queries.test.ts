@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("contacts.queries.list", () => {
   it("returns contacts for the given org only (tenant isolation)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -25,7 +25,7 @@ describe("contacts.queries.list", () => {
   });
 
   it("org_b query returns empty when only org_a data exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -39,7 +39,7 @@ describe("contacts.queries.list", () => {
   });
 
   it("excludes soft-deleted contacts", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -58,7 +58,7 @@ describe("contacts.queries.list", () => {
   });
 
   it("returns multiple non-deleted contacts for the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -78,7 +78,7 @@ describe("contacts.queries.list", () => {
 
 describe("contacts.queries.getById", () => {
   it("returns the contact document by ID", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.run(async (ctx) => {
       return await ctx.db.insert("contacts", {
@@ -95,7 +95,7 @@ describe("contacts.queries.getById", () => {
   });
 
   it("returns null for a nonexistent ID", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const fakeId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("contacts", {
@@ -112,7 +112,7 @@ describe("contacts.queries.getById", () => {
 
 describe("contacts.queries.search", () => {
   it("returns contacts matching the search term", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -133,7 +133,7 @@ describe("contacts.queries.search", () => {
   });
 
   it("excludes soft-deleted contacts from search results", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {
@@ -153,7 +153,7 @@ describe("contacts.queries.search", () => {
   });
 
   it("respects tenant isolation in search", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("contacts", {

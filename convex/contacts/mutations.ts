@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { requireAuth, requireOrg, requireOwnDoc } from "../auth.helpers";
 
 /**
  * Send this advertiser to ourcornercalendar.com.
@@ -110,6 +111,7 @@ export const create = mutation({
     ...contactFields,
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     if (args.email) {
       const sharing = await ctx.db
         .query("contacts")
@@ -146,6 +148,9 @@ export const update = mutation({
     ...contactFields,
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const { id, ...fields } = args;
     const doc = await ctx.db.get(id);
     if (!doc) throw new Error("Contact not found");
@@ -188,6 +193,9 @@ export const update = mutation({
 export const softDelete = mutation({
   args: { id: v.id("contacts") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const doc = await ctx.db.get(args.id);
     await ctx.db.patch(args.id, {
       email: undefined,
@@ -204,6 +212,7 @@ export const softDelete = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAuth(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

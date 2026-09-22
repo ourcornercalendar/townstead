@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("advertisements.queries.list", () => {
   it("returns ads for the given org only (tenant isolation)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("advertisements", {
@@ -25,7 +25,7 @@ describe("advertisements.queries.list", () => {
   });
 
   it("org_b query returns empty when only org_a data exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("advertisements", {
@@ -39,7 +39,7 @@ describe("advertisements.queries.list", () => {
   });
 
   it("excludes soft-deleted ads", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("advertisements", {
@@ -58,7 +58,7 @@ describe("advertisements.queries.list", () => {
   });
 
   it("returns multiple non-deleted ads for the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("advertisements", {
@@ -78,7 +78,7 @@ describe("advertisements.queries.list", () => {
 
 describe("advertisements.queries.getById", () => {
   it("returns the ad document by ID", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.run(async (ctx) => {
       return await ctx.db.insert("advertisements", {
@@ -95,7 +95,7 @@ describe("advertisements.queries.getById", () => {
   });
 
   it("returns null for a nonexistent ID", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const fakeId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("advertisements", {

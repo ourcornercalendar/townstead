@@ -151,6 +151,7 @@ describe("blog.mutations.softDelete", () => {
 
   it("soft-deleted post is excluded from list query", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const postId = await t.run(async (ctx) => {
@@ -164,12 +165,12 @@ describe("blog.mutations.softDelete", () => {
       });
     });
 
-    const before = await t.query(api.blog.queries.list, { orgId: "org_1" });
+    const before = await asOrg.query(api.blog.queries.list, { orgId: "org_1" });
     expect(before).toHaveLength(1);
 
     await asOrg1.mutation(api.blog.mutations.softDelete, { id: postId });
 
-    const after = await t.query(api.blog.queries.list, { orgId: "org_1" });
+    const after = await asOrg.query(api.blog.queries.list, { orgId: "org_1" });
     expect(after).toHaveLength(0);
   });
 

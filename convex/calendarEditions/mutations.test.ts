@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("calendarEditions.mutations.create", () => {
   it("creates a calendar edition with the given fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Spring 2026", code: "SP26",
@@ -21,7 +21,7 @@ describe("calendarEditions.mutations.create", () => {
   });
 
   it("rejects duplicate code within the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "First", code: "DUP",
@@ -35,13 +35,15 @@ describe("calendarEditions.mutations.create", () => {
   });
 
   it("allows the same code in different orgs", async () => {
-    const t = convexTest(schema, modules);
+    const base = convexTest(schema, modules);
+    const asA = base.withIdentity({ subject: "user_a", orgId: "org_a" });
+    const asB = base.withIdentity({ subject: "user_b", orgId: "org_b" });
 
-    await t.mutation(api.calendarEditions.mutations.create, {
+    await asA.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_a", name: "Org A Edition", code: "SHARED",
     });
 
-    const id = await t.mutation(api.calendarEditions.mutations.create, {
+    const id = await asB.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_b", name: "Org B Edition", code: "SHARED",
     });
 
@@ -49,7 +51,7 @@ describe("calendarEditions.mutations.create", () => {
   });
 
   it("allows reusing code of a soft-deleted edition in the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const firstId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Old Edition", code: "REUSE",
@@ -67,7 +69,7 @@ describe("calendarEditions.mutations.create", () => {
 
 describe("calendarEditions.mutations.update", () => {
   it("patches name and code on an existing edition", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Old Name", code: "OLD",
@@ -83,7 +85,7 @@ describe("calendarEditions.mutations.update", () => {
   });
 
   it("rejects duplicate code on update within the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Existing", code: "TAKEN",
@@ -101,7 +103,7 @@ describe("calendarEditions.mutations.update", () => {
   });
 
   it("allows keeping the same code on the same edition", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Same Code", code: "KEEP",
@@ -117,7 +119,7 @@ describe("calendarEditions.mutations.update", () => {
   });
 
   it("throws when edition does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const fakeId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("calendarEditions", {
@@ -137,7 +139,7 @@ describe("calendarEditions.mutations.update", () => {
 
 describe("calendarEditions.mutations.create — community linking", () => {
   it("adds the edition to the community's calendarEditionIds when communityId is provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const communityId = await t.run(async (ctx) =>
       ctx.db.insert("communities", {
@@ -155,7 +157,7 @@ describe("calendarEditions.mutations.create — community linking", () => {
   });
 
   it("does not modify any community when communityId is omitted", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const communityId = await t.run(async (ctx) =>
       ctx.db.insert("communities", {
@@ -173,7 +175,7 @@ describe("calendarEditions.mutations.create — community linking", () => {
   });
 
   it("throws when communityId belongs to a different org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     const communityId = await t.run(async (ctx) =>
       ctx.db.insert("communities", {
@@ -190,7 +192,7 @@ describe("calendarEditions.mutations.create — community linking", () => {
   });
 
   it("throws when communityId does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const fakeCommunityId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("communities", {
@@ -209,7 +211,7 @@ describe("calendarEditions.mutations.create — community linking", () => {
   });
 
   it("preserves existing calendarEditionIds on the community", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const existingEditionId = await t.run(async (ctx) =>
       ctx.db.insert("calendarEditions", {
@@ -237,7 +239,7 @@ describe("calendarEditions.mutations.create — community linking", () => {
 
 describe("calendarEditions.mutations.update — community linking", () => {
   it("assigns edition to a community when communityId is provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Edition", code: "ED",
@@ -259,7 +261,7 @@ describe("calendarEditions.mutations.update — community linking", () => {
   });
 
   it("moves edition from old community to new community on reassignment", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) =>
       ctx.db.insert("calendarEditions", {
@@ -292,7 +294,7 @@ describe("calendarEditions.mutations.update — community linking", () => {
   });
 
   it("removes edition from community when communityId is empty string", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) =>
       ctx.db.insert("calendarEditions", {
@@ -316,7 +318,7 @@ describe("calendarEditions.mutations.update — community linking", () => {
   });
 
   it("does not modify communities when neither communityId nor removeCommunity is provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) =>
       ctx.db.insert("calendarEditions", {
@@ -342,7 +344,7 @@ describe("calendarEditions.mutations.update — community linking", () => {
 
 describe("calendarEditions.mutations.softDelete", () => {
   it("marks the edition as deleted", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "To Delete", code: "DEL",
@@ -355,7 +357,7 @@ describe("calendarEditions.mutations.softDelete", () => {
   });
 
   it("soft-deleted edition no longer appears in list queries", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.mutation(api.calendarEditions.mutations.create, {
       orgId: "org_1", name: "Will Delete", code: "WD",
