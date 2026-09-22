@@ -61,14 +61,49 @@ export default function TeamInviteRedeemPage() {
   }
 
   if (redeemed) {
+    // Deliberately not a bare redirect. The submission page is reached from a
+    // URL built out of the organisation's slug, and if no public site has been
+    // set up there is no slug -- in which case an automatic redirect drops the
+    // person on the front page with no explanation, which reads exactly like
+    // nothing having happened.
+    const submitUrl = validation.orgSlug
+      ? `/${validation.orgSlug}/events/submit`
+      : null;
+
     return (
       <Shell>
         <CardContent className="space-y-4 pt-8 pb-8 text-center">
           <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
           <h1 className="text-xl font-bold tracking-tight">You&apos;re in</h1>
-          <p className="text-sm text-muted-foreground">
-            Taking you to the page for adding events...
-          </p>
+          {submitUrl ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Here&apos;s where you add events. Worth bookmarking.
+              </p>
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => router.push(submitUrl)}
+              >
+                Go to the event form
+              </Button>
+              <p className="text-xs text-muted-foreground break-all">
+                {submitUrl}
+              </p>
+            </>
+          ) : (
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                Your access is set up. But this organisation doesn&apos;t have a
+                public site configured yet, so there&apos;s no event page to
+                send you to.
+              </p>
+              <p>
+                Let the person who invited you know — they need to set a site
+                address under Site Branding.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Shell>
     );
@@ -176,11 +211,6 @@ export default function TeamInviteRedeemPage() {
               setError(null);
               await redeem({ token });
               setRedeemed(true);
-              const slug = validation.orgSlug;
-              setTimeout(
-                () => router.push(slug ? `/${slug}/events/submit` : "/"),
-                1200
-              );
             } catch (err) {
               setError(
                 err instanceof Error ? err.message : "Couldn't accept the invite"
