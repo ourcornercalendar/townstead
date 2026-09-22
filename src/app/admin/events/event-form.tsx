@@ -119,6 +119,13 @@ interface EventFormProps {
   onOpenChange: (open: boolean) => void;
   editing: Doc<"events"> | null;
   calendarEditions: Doc<"calendarEditions">[];
+  /**
+   * Which organisation the event belongs to. The admin screens leave this out
+   * and it comes from the signed-in Clerk organisation, as it always has. The
+   * events desk passes it, because somebody invited to help with the calendar
+   * is deliberately not a member of any organisation and so has none to read.
+   */
+  orgId?: string;
 }
 
 export function EventForm({
@@ -126,8 +133,10 @@ export function EventForm({
   onOpenChange,
   editing,
   calendarEditions,
+  orgId: orgIdProp,
 }: EventFormProps) {
-  const { orgId } = useOrg();
+  const { orgId: clerkOrgId } = useOrg();
+  const orgId = orgIdProp ?? clerkOrgId;
   const create = useMutation(api.events.mutations.create);
   const update = useMutation(api.events.mutations.update);
   const generateUploadUrl = useMutation(api.events.mutations.generateUploadUrl);
@@ -210,7 +219,9 @@ export function EventForm({
     async (file: File) => {
       setUploadingImage(true);
       try {
-        const url = await generateUploadUrl();
+        const url = await generateUploadUrl(
+          orgIdProp ? { orgId: orgIdProp } : {}
+        );
         const result = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": file.type },
@@ -224,7 +235,7 @@ export function EventForm({
         setUploadingImage(false);
       }
     },
-    [generateUploadUrl]
+    [generateUploadUrl, orgIdProp]
   );
 
   const onSubmit = async (values: EventFormValues) => {

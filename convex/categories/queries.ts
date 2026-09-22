@@ -1,6 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { requireOrg, isOwnDoc } from "../auth.helpers";
+import { isOwnDoc, requireWorkspace } from "../auth.helpers";
 
 export const list = query({
   args: {
@@ -15,7 +15,9 @@ export const list = query({
     ),
   },
   handler: async (ctx, args) => {
-    await requireOrg(ctx, args.orgId);
+    // Readable by a helper working on the calendar too: the event form needs
+    // these names to offer them, and they are labels, not business data.
+    await requireWorkspace(ctx, args.orgId);
     if (args.type) {
       return await ctx.db
         .query("categories")

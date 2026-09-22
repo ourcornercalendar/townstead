@@ -22,6 +22,24 @@ function normalizeEmail(email: string): string {
 }
 
 /**
+ * The organisation on a sign-in token, if there is one.
+ *
+ * Clerk spells this differently depending on the JWT template -- `orgId`, or an
+ * `o` claim that is either the id itself or an object holding it -- so this
+ * mirrors what `requireAuth` accepts rather than guessing one shape.
+ */
+function identityOrgId(
+  identity: Record<string, unknown> | null
+): string | undefined {
+  if (!identity) return undefined;
+  const rawO = identity.o;
+  return (
+    (identity.orgId as string | undefined) ??
+    (typeof rawO === "string" ? rawO : (rawO as { id?: string } | undefined)?.id)
+  );
+}
+
+/**
  * The caller must be an org member who is not themselves operating under a
  * restricted grant.
  *
@@ -73,6 +91,18 @@ export const create = mutation({
     const email = normalizeEmail(args.email);
     if (!email.includes("@")) {
       throw new Error("That doesn't look like an email address");
+    }
+
+    // Caught here as well as at redemption, because "I'll invite myself to see
+    // what it does" is the obvious first thing to try, and the damage only
+    // becomes visible later when the Approve button stops working.
+    const ownEmail = (await ctx.auth.getUserIdentity())?.email;
+    if (ownEmail && normalizeEmail(ownEmail) === email) {
+      throw new Error(
+        "That's your own address. Accepting a team invite would replace your " +
+          "administrator access with the limited one, so this is refused. To " +
+          "see what the invited person sees, use a second email address."
+      );
     }
 
     const permissions = validatePermissions(args.permissions);
@@ -137,6 +167,22 @@ export const redeem = mutation({
     if (invite.expiresAt < Date.now()) {
       await ctx.db.patch(invite._id, { status: "expired" });
       throw new Error("This invite has expired");
+    }
+
+    // An administrator accepting a team invite would be demoting herself.
+    //
+    // A limited grant does not sit alongside running the organisation, it
+    // replaces it: every permission check consults the grant first, so the
+    // moment one exists the owner loses the Team screen and the ability to
+    // approve anything. Somebody testing the flow with their own account would
+    // have locked themselves out of both, with no way back except the Convex
+    // dashboard. This refuses instead.
+    if (identityOrgId(identity) === invite.orgId) {
+      throw new Error(
+        "You already run this organisation — accepting a team invite would " +
+          "take that away. Send the link to the person it's for, or sign out " +
+          "and open it with their account."
+      );
     }
 
     // If the sign-in carries an email, it has to be the one that was invited,

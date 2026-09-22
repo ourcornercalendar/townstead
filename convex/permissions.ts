@@ -4,6 +4,10 @@ export const PERMISSIONS = {
   EVENTS_CREATE: "events:create",
   EVENTS_UPDATE_OWN: "events:update_own",
   EVENTS_DELETE_OWN: "events:delete_own",
+  // Edit or delete any event in the organisation, not only one's own. For a
+  // colleague genuinely sharing the calendar work rather than contributing to
+  // it. Deliberately does not include approving other people's submissions.
+  EVENTS_MANAGE_ALL: "events:manage_all",
   EVENTS_APPROVE: "events:approve",
 
   // Blog — tiered actions
@@ -103,6 +107,7 @@ export const TEAM_ASSIGNABLE_PERMISSIONS: Permission[] = [
   PERMISSIONS.EVENTS_CREATE,
   PERMISSIONS.EVENTS_UPDATE_OWN,
   PERMISSIONS.EVENTS_DELETE_OWN,
+  PERMISSIONS.EVENTS_MANAGE_ALL,
   PERMISSIONS.BLOG_SUBMIT,
   PERMISSIONS.BLOG_CREATE,
   PERMISSIONS.BLOG_UPDATE_OWN,
