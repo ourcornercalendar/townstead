@@ -22,6 +22,14 @@ export default function AuthRedirectPage() {
     isLoaded && isSignedIn ? {} : "skip"
   );
 
+  // Someone invited to add events is deliberately not an organisation member,
+  // so /admin is closed to them and they would otherwise be dropped on the
+  // public home page with no sign of what they are here to do.
+  const teamLanding = useQuery(
+    api.teamInvites.queries.myTeamLanding,
+    isLoaded && isSignedIn ? {} : "skip"
+  );
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -46,11 +54,16 @@ export default function AuthRedirectPage() {
       }
     }
 
-    // Wait for grant query to resolve before deciding
-    if (grant === undefined) return;
+    // Wait for both grant queries to resolve before deciding
+    if (grant === undefined || teamLanding === undefined) return;
 
     if (grant && grant.role === "contact" && grant.isActive) {
       router.replace("/portal");
+      return;
+    }
+
+    if (teamLanding) {
+      router.replace(`/${teamLanding.orgSlug}/events/submit`);
       return;
     }
 
@@ -60,6 +73,7 @@ export default function AuthRedirectPage() {
     isSignedIn,
     orgRole,
     grant,
+    teamLanding,
     router,
     orgListLoaded,
     userMemberships,

@@ -90,5 +90,28 @@ export const DEFAULT_USER_PERMISSIONS: Permission[] = [
   PERMISSIONS.COUPONS_CLAIM,
 ];
 
+/**
+ * What an admin is allowed to hand to a staff member from the Team screen.
+ *
+ * Deliberately excludes every `portal:*` permission. Those open the advertiser
+ * billing portal -- invoices, payments, statements -- which has nothing to do
+ * with helping run the calendar, and is exactly the sort of thing that should
+ * not be reachable by ticking a box on a page about adding a helper.
+ */
+export const TEAM_ASSIGNABLE_PERMISSIONS: Permission[] = [
+  PERMISSIONS.EVENTS_SUBMIT,
+  PERMISSIONS.EVENTS_CREATE,
+  PERMISSIONS.EVENTS_UPDATE_OWN,
+  PERMISSIONS.EVENTS_DELETE_OWN,
+  PERMISSIONS.BLOG_SUBMIT,
+  PERMISSIONS.BLOG_CREATE,
+  PERMISSIONS.BLOG_UPDATE_OWN,
+  PERMISSIONS.BLOG_DELETE_OWN,
+  PERMISSIONS.VIDEOS_SUBMIT,
+  PERMISSIONS.VIDEOS_CREATE,
+  PERMISSIONS.VIDEOS_UPDATE_OWN,
+  PERMISSIONS.VIDEOS_DELETE_OWN,
+];
+
 export const ROLE_VALUES = ["admin", "contact", "user"] as const;
 export type Role = (typeof ROLE_VALUES)[number];

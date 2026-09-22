@@ -48,6 +48,8 @@ import type * as permissions from "../permissions.js";
 import type * as portal_mutations from "../portal/mutations.js";
 import type * as portal_queries from "../portal/queries.js";
 import type * as portalInvites_mutations from "../portalInvites/mutations.js";
+import type * as teamInvites_mutations from "../teamInvites/mutations.js";
+import type * as teamInvites_queries from "../teamInvites/queries.js";
 import type * as portalInvites_queries from "../portalInvites/queries.js";
 import type * as public_mutations from "../public/mutations.js";
 import type * as public_queries from "../public/queries.js";
@@ -115,6 +117,8 @@ declare const fullApi: ApiFromModules<{
   permissions: typeof permissions;
   "portal/mutations": typeof portal_mutations;
   "portal/queries": typeof portal_queries;
+  "teamInvites/mutations": typeof teamInvites_mutations;
+  "teamInvites/queries": typeof teamInvites_queries;
   "portalInvites/mutations": typeof portalInvites_mutations;
   "portalInvites/queries": typeof portalInvites_queries;
   "public/mutations": typeof public_mutations;
