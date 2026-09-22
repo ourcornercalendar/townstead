@@ -11,6 +11,9 @@ const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const RESERVED_SEGMENTS = new Set([
   "events", "directory", "coupons", "blog", "videos", "profile",
   "admin", "portal", "auth", "api", "_next", "c",
+  // /team/invite/<token> — without this, "team" is read as an organisation
+  // slug and "invite" as a community, and the invite page never renders.
+  "team",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

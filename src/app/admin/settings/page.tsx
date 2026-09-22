@@ -36,7 +36,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Shield, ChevronRight } from "lucide-react";
+import { Shield, ChevronRight, Users } from "lucide-react";
 import { useDefaultYear } from "@/hooks/use-default-year";
 
 const currentYear = new Date().getFullYear();
@@ -169,6 +169,26 @@ export default function SettingsPage() {
           Manage your organization&apos;s invoice and billing settings.
         </p>
       </div>
+
+      <Link href="/admin/settings/team" className="block group">
+        <Card className="border-l-3 border-l-violet-500 transition-colors group-hover:bg-muted/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-violet-500" />
+                <div>
+                  <CardTitle>Team</CardTitle>
+                  <CardDescription>
+                    Let someone add events without giving them the rest of the
+                    business.
+                  </CardDescription>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </div>
+          </CardHeader>
+        </Card>
+      </Link>
 
       <Link href="/admin/settings/permissions" className="block group">
         <Card className="border-l-3 border-l-indigo-500 transition-colors group-hover:bg-muted/50">
