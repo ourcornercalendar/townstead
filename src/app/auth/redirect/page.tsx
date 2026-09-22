@@ -26,7 +26,7 @@ export default function AuthRedirectPage() {
   // so /admin is closed to them and they would otherwise be dropped on the
   // public home page with no sign of what they are here to do.
   const teamLanding = useQuery(
-    api.teamInvites.queries.myTeamLanding,
+    api.teamInvites.queries.myWorkspace,
     isLoaded && isSignedIn ? {} : "skip"
   );
 
@@ -63,7 +63,7 @@ export default function AuthRedirectPage() {
     }
 
     if (teamLanding) {
-      router.replace(`/${teamLanding.orgSlug}/events/submit`);
+      router.replace("/event-desk");
       return;
     }
 

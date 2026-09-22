@@ -49,10 +49,17 @@ const OPTIONAL_EXTRAS = [
   {
     id: PERMISSIONS.EVENTS_UPDATE_OWN,
     label: "Edit events they added",
+    hint: "Their own only.",
   },
   {
     id: PERMISSIONS.EVENTS_DELETE_OWN,
     label: "Delete events they added",
+    hint: "Their own only.",
+  },
+  {
+    id: PERMISSIONS.EVENTS_MANAGE_ALL,
+    label: "Edit and delete anyone's events",
+    hint: "The whole calendar, including events you entered. For someone genuinely sharing the work.",
   },
 ] as const;
 
@@ -69,11 +76,15 @@ function describe(permissions: string[]): string {
   } else if (permissions.includes(PERMISSIONS.EVENTS_SUBMIT)) {
     parts.push("Adds events — you approve them first");
   }
-  if (permissions.includes(PERMISSIONS.EVENTS_UPDATE_OWN)) {
-    parts.push("edits their own");
-  }
-  if (permissions.includes(PERMISSIONS.EVENTS_DELETE_OWN)) {
-    parts.push("deletes their own");
+  if (permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)) {
+    parts.push("edits and deletes any event");
+  } else {
+    if (permissions.includes(PERMISSIONS.EVENTS_UPDATE_OWN)) {
+      parts.push("edits their own");
+    }
+    if (permissions.includes(PERMISSIONS.EVENTS_DELETE_OWN)) {
+      parts.push("deletes their own");
+    }
   }
   return parts.join(", ") || "No access";
 }
@@ -232,9 +243,14 @@ export default function TeamPage() {
             {OPTIONAL_EXTRAS.map((extra) => (
               <div
                 key={extra.id}
-                className="flex items-center justify-between rounded-md border p-3"
+                className="flex items-center justify-between gap-4 rounded-md border p-3"
               >
-                <span className="text-sm">{extra.label}</span>
+                <span className="text-sm">
+                  {extra.label}
+                  <span className="block text-xs text-muted-foreground">
+                    {extra.hint}
+                  </span>
+                </span>
                 <Switch
                   checked={extras.includes(extra.id)}
                   onCheckedChange={() => toggleExtra(extra.id)}
@@ -242,8 +258,8 @@ export default function TeamPage() {
               </div>
             ))}
             <p className="text-xs text-muted-foreground">
-              Only their own events, never anyone else&apos;s. Approving other
-              people&apos;s submissions stays with administrators.
+              Approving other people&apos;s submissions stays with
+              administrators either way.
             </p>
           </div>
 
@@ -278,6 +294,11 @@ export default function TeamPage() {
               <p className="text-xs text-muted-foreground">
                 Nothing is emailed automatically — send it yourself, by
                 whichever way you normally reach them.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                After accepting, they land on{" "}
+                <span className="font-mono">/event-desk</span> — worth telling
+                them to bookmark it.
               </p>
             </div>
           )}

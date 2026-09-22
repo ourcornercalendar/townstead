@@ -482,3 +482,124 @@ describe("approving what she submits", () => {
     ).rejects.toThrow(/Permission denied: events:approve/);
   });
 });
+
+describe("the administrator cannot demote herself by accident", () => {
+  // A limited grant does not sit alongside running the organisation, it
+  // replaces it. Before this was refused, an admin who accepted a team invite
+  // silently lost both the Team screen and the ability to approve events, and
+  // could only be put back from the Convex dashboard.
+
+  it("refuses an invite addressed to the admin's own email", async () => {
+    const t = convexTest(schema, modules).withIdentity({
+      subject: "joyce",
+      orgId: ORG,
+      email: "joyce@example.com",
+    });
+    await expect(
+      t.mutation(api.teamInvites.mutations.create, {
+        email: "Joyce@Example.com",
+        permissions: ["events:create"],
+      })
+    ).rejects.toThrow(/your own address/);
+  });
+
+  it("refuses redemption by anyone already in the organisation", async () => {
+    const base = convexTest(schema, modules);
+    const token = await base
+      .withIdentity(ADMIN)
+      .mutation(api.teamInvites.mutations.create, {
+        email: "mad@example.com",
+        permissions: ["events:create"],
+      });
+
+    const admin = base.withIdentity({
+      subject: "joyce",
+      orgId: ORG,
+      email: "mad@example.com",
+    });
+    await expect(
+      admin.mutation(api.teamInvites.mutations.redeem, { token })
+    ).rejects.toThrow(/already run this organisation/);
+  });
+
+  it("leaves her permissions untouched after the refusal", async () => {
+    const base = convexTest(schema, modules);
+    await base.run(async (ctx) => {
+      await ctx.db.insert("tenantBranding", {
+        orgId: ORG,
+        orgSlug: "ourcorner",
+        siteName: "Our Corner",
+      });
+    });
+    const token = await base
+      .withIdentity(ADMIN)
+      .mutation(api.teamInvites.mutations.create, {
+        email: "mad@example.com",
+        permissions: ["events:create"],
+      });
+    const admin = base.withIdentity({
+      subject: "joyce",
+      orgId: ORG,
+      email: "mad@example.com",
+    });
+    await expect(
+      admin.mutation(api.teamInvites.mutations.redeem, { token })
+    ).rejects.toThrow();
+
+    const grant = await base.run(async (ctx) =>
+      ctx.db
+        .query("orgPermissions")
+        .withIndex("by_userId_and_orgId", (q) =>
+          q.eq("userId", "joyce").eq("orgId", ORG)
+        )
+        .first()
+    );
+    expect(grant).toBeNull();
+
+    // Still an administrator: the Team screen and approval both still work.
+    await base.withIdentity(ADMIN).mutation(api.teamInvites.mutations.create, {
+      email: "someone@example.com",
+      permissions: ["events:create"],
+    });
+    const id = await base.run(async (ctx) =>
+      ctx.db.insert("events", {
+        name: "Waiting",
+        date: Date.now(),
+        orgId: ORG,
+        isApproved: false,
+        isDeleted: false,
+      })
+    );
+    await base
+      .withIdentity(ADMIN)
+      .mutation(api.events.mutations.approve, { id });
+    const event = await base.run(async (ctx) => ctx.db.get(id));
+    expect(event!.isApproved).toBe(true);
+  });
+
+  it("still lets the invite be used by the person it was for", async () => {
+    const base = convexTest(schema, modules);
+    const token = await base
+      .withIdentity(ADMIN)
+      .mutation(api.teamInvites.mutations.create, {
+        email: "mad@example.com",
+        permissions: ["events:create"],
+      });
+    // No orgId on her token -- she is not in the organisation, which is the
+    // whole design.
+    const asMadalynn = base.withIdentity({
+      subject: "madalynn",
+      email: "mad@example.com",
+    });
+    await asMadalynn.mutation(api.teamInvites.mutations.redeem, { token });
+    const grant = await base.run(async (ctx) =>
+      ctx.db
+        .query("orgPermissions")
+        .withIndex("by_userId_and_orgId", (q) =>
+          q.eq("userId", "madalynn").eq("orgId", ORG)
+        )
+        .first()
+    );
+    expect(grant!.permissions).toEqual(["events:create"]);
+  });
+});

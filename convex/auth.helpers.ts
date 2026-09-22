@@ -14,12 +14,28 @@ export interface OrgAuth {
 export async function requireAuth(ctx: AuthCtx): Promise<OrgAuth> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
-  const rawO = (identity as Record<string, unknown>).o;
-  const orgId =
-    (identity.orgId as string | undefined) ??
-    (typeof rawO === "string" ? rawO : (rawO as { id?: string } | undefined)?.id);
+  const orgId = identityOrgId(identity);
   if (!orgId) throw new Error("No organization selected");
   return { userId: identity.subject, orgId };
+}
+
+/**
+ * The organisation on a sign-in token, if there is one.
+ *
+ * Clerk spells this differently depending on the JWT template -- `orgId`, or an
+ * `o` claim that is either the id itself or an object holding it -- so every
+ * reader goes through here rather than picking one shape and being wrong on
+ * somebody else's deployment.
+ */
+export function identityOrgId(
+  identity: Record<string, unknown> | null
+): string | undefined {
+  if (!identity) return undefined;
+  const rawO = identity.o;
+  return (
+    (identity.orgId as string | undefined) ??
+    (typeof rawO === "string" ? rawO : (rawO as { id?: string } | undefined)?.id)
+  );
 }
 
 /**
@@ -296,4 +312,78 @@ export async function requireCreateAction(
     throw new Error(`Permission denied: ${domain}:create`);
   }
   return { needsApproval: result.needsApproval };
+}
+
+export interface WorkspaceAuth extends OrgAuth {
+  /**
+   * True when the caller belongs to the Clerk organisation -- which in this
+   * app means they run it. False when they are here on a team grant, which is
+   * the narrow case: signed in, given one job, and not a member of anything.
+   */
+  isOrgMember: boolean;
+}
+
+/**
+ * Lets someone work inside one organisation without being a member of it.
+ *
+ * Every other admin function requires Clerk organisation membership, and that
+ * is deliberate -- it is the line that keeps an invited helper away from
+ * contacts, purchases and billing without relying on a screen to hide them.
+ * But a helper invited to keep the calendar has to reach the events tables
+ * themselves, so this is the one door built to open both ways:
+ *
+ * - an organisation member passes, still held to a limited grant if they have
+ *   one, so this can never be a way around one;
+ * - a non-member passes only with an active, non-advertiser grant for exactly
+ *   this organisation.
+ *
+ * It answers "may this person work here at all". What they may then *do* is a
+ * separate check the caller makes, because the answer differs per function.
+ */
+export async function requireWorkspace(
+  ctx: AuthCtx,
+  orgId: string
+): Promise<WorkspaceAuth> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Not authenticated");
+  const userId = identity.subject;
+
+  if (identityOrgId(identity) === orgId) {
+    return { userId, orgId, isOrgMember: true };
+  }
+
+  const grant = await ctx.db
+    .query("orgPermissions")
+    .withIndex("by_userId_and_orgId", (q) =>
+      q.eq("userId", userId).eq("orgId", orgId)
+    )
+    .first();
+
+  // "contact" grants belong to advertisers and open the billing portal, not
+  // the calendar. They are not a way in here.
+  if (!grant || !grant.isActive || grant.role === "contact") {
+    throw new Error("Not authorized for this organization");
+  }
+
+  return { userId, orgId, isOrgMember: false };
+}
+
+/**
+ * Like `requireWorkspace`, and then the permission a non-member needs.
+ *
+ * Members are governed by `requireOrgMemberPermission`, so a member who holds
+ * a limited grant is still held to it.
+ */
+export async function requireWorkspacePermission(
+  ctx: AuthCtx,
+  orgId: string,
+  permission: string
+): Promise<WorkspaceAuth> {
+  const auth = await requireWorkspace(ctx, orgId);
+  if (auth.isOrgMember) {
+    await requireOrgMemberPermission(ctx, auth.userId, orgId, permission);
+    return auth;
+  }
+  await requirePermission(ctx, auth.userId, orgId, permission);
+  return auth;
 }
