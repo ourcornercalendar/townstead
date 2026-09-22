@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("events.mutations.create", () => {
   it("inserts an event with required fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.mutation(api.events.mutations.create, {
       orgId: "org_1",
@@ -26,7 +26,7 @@ describe("events.mutations.create", () => {
   });
 
   it("inserts an event with all optional fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.mutation(api.events.mutations.create, {
       orgId: "org_1",
@@ -53,7 +53,7 @@ describe("events.mutations.create", () => {
 
 describe("events.mutations.update", () => {
   it("patches event fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -82,7 +82,7 @@ describe("events.mutations.update", () => {
 
 describe("events.mutations.softDelete", () => {
   it("marks event as isDeleted=true", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -102,7 +102,7 @@ describe("events.mutations.softDelete", () => {
   });
 
   it("soft-deleted event is excluded from list query", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {

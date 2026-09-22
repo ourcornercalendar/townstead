@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { requireOrg } from "../auth.helpers";
 
 async function resolveStorageUrl(
   ctx: { storage: { getUrl: (id: Id<"_storage">) => Promise<string | null> } },
@@ -13,6 +14,7 @@ async function resolveStorageUrl(
 export const getByOrgId = query({
   args: { orgId: v.string() },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const doc = await ctx.db
       .query("tenantBranding")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))

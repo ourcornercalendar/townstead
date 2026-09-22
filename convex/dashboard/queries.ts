@@ -6,6 +6,7 @@ import {
   computeAmountPaid,
   isScheduledPaymentLate,
 } from "../billing/helpers";
+import { requireOrg } from "../auth.helpers";
 
 async function enrichSlotsForEdition(
   ctx: QueryCtx,
@@ -106,6 +107,7 @@ export const getPrintInventoryData = query({
     advertisementIds: v.optional(v.array(v.id("advertisements"))),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const advertisementIdFilter =
       args.advertisementIds === undefined
         ? null
@@ -159,6 +161,7 @@ export const getDashboardSlots = query({
     year: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const enrichedSlots = await enrichSlotsForEdition(
       ctx,
       args.calendarEditionId,
@@ -192,6 +195,7 @@ export const getDashboardStats = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const cached = await ctx.db
       .query("dashboardStatsCache")
       .withIndex("by_org_edition_year", (q) =>

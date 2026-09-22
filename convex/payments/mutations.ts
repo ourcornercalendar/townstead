@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { allocatePayment } from "../billing/helpers";
+import { requireOrg, requireOwnDoc } from "../auth.helpers";
 
 async function invalidateStatsCacheForPurchase(
   ctx: MutationCtx,
@@ -60,6 +61,7 @@ export const recordPayment = mutation({
     orgId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const paymentId = await ctx.db.insert("payments", {
       purchaseId: args.purchaseId,
       amount: args.amount,
@@ -104,6 +106,9 @@ export const updatePayment = mutation({
     isPrepaid: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const payment = await ctx.db.get(args.id);
     if (!payment) throw new Error("Payment not found");
 
@@ -148,6 +153,9 @@ export const updatePayment = mutation({
 export const deletePayment = mutation({
   args: { id: v.id("payments") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const payment = await ctx.db.get(args.id);
     if (!payment) throw new Error("Payment not found");
 

@@ -9,7 +9,7 @@ afterEach(() => vi.useRealTimers());
 
 describe("purchases", () => {
   it("tenant isolation — list returns only purchases for the given org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       const contactA = await ctx.db.insert("contacts", {
@@ -59,7 +59,7 @@ describe("purchases", () => {
   });
 
   it("soft-deleted purchases are excluded from list", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -97,7 +97,7 @@ describe("purchases", () => {
   });
 
   it("create returns an ID and generates invoice number", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {
@@ -163,7 +163,7 @@ describe("purchases", () => {
   });
 
   it("getDetail returns enriched purchase with computed billing fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {
@@ -220,7 +220,7 @@ describe("purchases", () => {
   });
 
   it("softDelete marks purchase as deleted and cleans up related records", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {

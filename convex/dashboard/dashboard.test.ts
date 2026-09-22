@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("dashboard", () => {
   it("tenant isolation — getPrintInventoryData excludes other org editions", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     const editionId = await t.run(async (ctx) => {
       return await ctx.db.insert("calendarEditions", {
@@ -29,7 +29,7 @@ describe("dashboard", () => {
   });
 
   it("getDashboardSlots returns empty slots for an edition with no purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) => {
       return await ctx.db.insert("calendarEditions", {
@@ -50,7 +50,7 @@ describe("dashboard", () => {
   });
 
   it("getDashboardStats returns zero stats for an edition with no purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) => {
       return await ctx.db.insert("calendarEditions", {
@@ -74,7 +74,7 @@ describe("dashboard", () => {
   });
 
   it("getDashboardStats reads from cache when available", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) => {
       const eid = await ctx.db.insert("calendarEditions", {
@@ -108,7 +108,7 @@ describe("dashboard", () => {
   });
 
   it("getPrintInventoryData returns edition slots when data exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const editionId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

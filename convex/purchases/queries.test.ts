@@ -9,7 +9,7 @@ afterEach(() => vi.useRealTimers());
 
 describe("purchases.queries.getByContactAndYear", () => {
   it("returns purchase summary when match exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {
@@ -67,7 +67,7 @@ describe("purchases.queries.getByContactAndYear", () => {
   });
 
   it("returns null when no purchase exists for contact+year", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.run(async (ctx) => {
       return await ctx.db.insert("contacts", {
@@ -88,7 +88,7 @@ describe("purchases.queries.getByContactAndYear", () => {
   });
 
   it("returns null when purchase exists for different year", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {
@@ -141,7 +141,7 @@ describe("purchases.queries.getByContactAndYear", () => {
   });
 
   it("excludes soft-deleted purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {
@@ -196,7 +196,7 @@ describe("purchases.queries.getByContactAndYear", () => {
   });
 
   it("computes amountPaid correctly when payments exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { contactId, editionId, adId } = await t.run(async (ctx) => {
       const cId = await ctx.db.insert("contacts", {

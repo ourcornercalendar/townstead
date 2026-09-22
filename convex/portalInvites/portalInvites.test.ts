@@ -540,6 +540,7 @@ describe("portalInvites", () => {
   describe("validateToken", () => {
     it("returns valid=true with org info for a valid pending invite", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
       await t.run(async (ctx) => {
         const contactId = await ctx.db.insert("contacts", {
@@ -563,7 +564,7 @@ describe("portalInvites", () => {
         });
       });
 
-      const result = await t.query(api.portalInvites.queries.validateToken, {
+      const result = await asOrg.query(api.portalInvites.queries.validateToken, {
         token: "valid_token_12345678901234567890",
       });
       expect(result.valid).toBe(true);
@@ -576,6 +577,7 @@ describe("portalInvites", () => {
 
     it("returns valid=false for expired invite", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
       await t.run(async (ctx) => {
         const contactId = await ctx.db.insert("contacts", {
@@ -595,7 +597,7 @@ describe("portalInvites", () => {
         });
       });
 
-      const result = await t.query(api.portalInvites.queries.validateToken, {
+      const result = await asOrg.query(api.portalInvites.queries.validateToken, {
         token: "expired_validate_tok_12345678901",
       });
       expect(result.valid).toBe(false);
@@ -603,7 +605,8 @@ describe("portalInvites", () => {
 
     it("returns valid=false for nonexistent token", async () => {
       const t = convexTest(schema, modules);
-      const result = await t.query(api.portalInvites.queries.validateToken, {
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
+      const result = await asOrg.query(api.portalInvites.queries.validateToken, {
         token: "does_not_exist",
       });
       expect(result.valid).toBe(false);

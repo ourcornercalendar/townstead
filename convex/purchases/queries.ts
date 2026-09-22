@@ -10,6 +10,7 @@ import {
   isScheduledPaymentLate,
   computeScheduledPaymentPaid,
 } from "../billing/helpers";
+import { requireOrg, isOwnDoc } from "../auth.helpers";
 
 async function getEditionCodesSorted(ctx: { db: any }, editionIds: any[]) {
   const editions = [];
@@ -34,6 +35,7 @@ async function getEditionNames(ctx: { db: any }, editionIds: any[]) {
 export const list = query({
   args: { orgId: v.string(), now: v.number() },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchases = await ctx.db
       .query("purchases")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
@@ -115,6 +117,10 @@ export const list = query({
 export const getById = query({
   args: { id: v.id("purchases") },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.id)))) return null;
     return await ctx.db.get(args.id);
   },
 });
@@ -122,6 +128,10 @@ export const getById = query({
 export const getDetail = query({
   args: { id: v.id("purchases"), now: v.number() },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.id)))) return null;
     const purchase = await ctx.db.get(args.id);
     if (!purchase || purchase.isDeleted) return null;
 
@@ -238,6 +248,10 @@ export const getDetail = query({
 export const getByContactAndYear = query({
   args: { contactId: v.id("contacts"), year: v.number(), now: v.number() },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.contactId)))) return null;
     const purchase = await ctx.db
       .query("purchases")
       .withIndex("by_contactId", (q) => q.eq("contactId", args.contactId))
@@ -304,6 +318,7 @@ export const getByContactAndYear = query({
 export const exportContacts = query({
   args: { orgId: v.string(), year: v.number() },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchases = await ctx.db
       .query("purchases")
       .withIndex("by_orgId_and_year", (q) =>
@@ -330,6 +345,10 @@ export const exportContacts = query({
 export const listByContact = query({
   args: { contactId: v.id("contacts"), now: v.number() },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.contactId)))) return [];
     const purchases = await ctx.db
       .query("purchases")
       .withIndex("by_contactId", (q) => q.eq("contactId", args.contactId))

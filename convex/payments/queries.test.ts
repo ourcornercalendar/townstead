@@ -8,7 +8,7 @@ const ORG = "test_org";
 
 describe("listByPurchase", () => {
   it("returns payments with allocations, sorted by date desc", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -76,7 +76,7 @@ describe("listByPurchase", () => {
   });
 
   it("returns empty array when purchase has no payments", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -105,7 +105,7 @@ describe("listByPurchase", () => {
 
 describe("listByContact", () => {
   it("returns payments across purchases enriched with invoiceNumber and editionName, sorted by date desc", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const contactId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -168,7 +168,7 @@ describe("listByContact", () => {
   });
 
   it("excludes payments from soft-deleted purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const contactId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -202,7 +202,7 @@ describe("listByContact", () => {
   });
 
   it("shows 'Unknown' for editionName when purchase has no calendarEditionIds", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const contactId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("tenantBranding", () => {
   it("tenant isolation — getByOrgId returns null for non-existent org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -23,7 +23,7 @@ describe("tenantBranding", () => {
   });
 
   it("upsert creates new branding then updates on second call", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const id1 = await t.mutation(api.tenantBranding.mutations.upsert, {
       orgId: "org_1",
@@ -56,7 +56,7 @@ describe("tenantBranding", () => {
   });
 
   it("getBySlug returns branding by orgSlug", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.tenantBranding.mutations.upsert, {
       orgId: "org_1",
@@ -74,7 +74,7 @@ describe("tenantBranding", () => {
   });
 
   it("getBySlug returns null for unknown slug", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const result = await t.query(api.tenantBranding.queries.getBySlug, {
       orgSlug: "nonexistent",
@@ -83,7 +83,7 @@ describe("tenantBranding", () => {
   });
 
   it("getBySlug returns resolved logoUrl and heroImageUrl as null when not set", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.tenantBranding.mutations.upsert, {
       orgId: "org_1",
@@ -100,7 +100,7 @@ describe("tenantBranding", () => {
   });
 
   it("getByOrgId returns resolved logoUrl and heroImageUrl as null when not set", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.tenantBranding.mutations.upsert, {
       orgId: "org_1",
@@ -117,7 +117,7 @@ describe("tenantBranding", () => {
   });
 
   it("upsert persists heroImage field", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const storageId = await t.run(async (ctx) => {
       return await ctx.storage.store(new Blob(["fake-image"], { type: "image/png" }));
@@ -140,7 +140,7 @@ describe("tenantBranding", () => {
   });
 
   it("upsert saves socialLinks correctly", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.tenantBranding.mutations.upsert, {
       orgId: "org_1",

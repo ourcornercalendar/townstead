@@ -4,10 +4,15 @@ import {
   isScheduledPaymentLate,
   computeScheduledPaymentPaid,
 } from "../billing/helpers";
+import { isOwnDoc } from "../auth.helpers";
 
 export const listByPurchase = query({
   args: { purchaseId: v.id("purchases"), now: v.number() },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.purchaseId)))) return [];
     const scheduledPayments = await ctx.db
       .query("scheduledPayments")
       .withIndex("by_purchaseId", (q) =>

@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("coupons.queries.list", () => {
   it("returns coupons for the given orgId", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -34,7 +34,7 @@ describe("coupons.queries.list", () => {
   });
 
   it("tenant isolation — org A cannot see org B coupons", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -61,7 +61,7 @@ describe("coupons.queries.list", () => {
   });
 
   it("excludes soft-deleted coupons", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -99,7 +99,7 @@ describe("coupons.queries.list", () => {
 
 describe("coupons.queries.getById", () => {
   it("returns the coupon by id", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const couponId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -127,7 +127,7 @@ describe("coupons.queries.getById", () => {
 
 describe("coupons.queries.getClaimCount", () => {
   it("returns count of claims for coupon", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const couponId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -166,7 +166,7 @@ describe("coupons.queries.getClaimCount", () => {
   });
 
   it("returns 0 when no claims exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const couponId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
