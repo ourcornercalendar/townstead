@@ -160,6 +160,42 @@ export async function requirePermission(
 }
 
 /**
+ * For a permission held by whoever runs the organisation, checked on a caller
+ * already proven to be a member of it.
+ *
+ * `checkPermission` looks only at the `orgPermissions` table, and nothing ever
+ * writes a row there for the person who owns the organisation -- membership
+ * lives in Clerk. So an owner with no row fell through to the *public* `user`
+ * defaults, which do not include approving anything. The effect was that the
+ * Approve button on a submitted event failed for the one person it was for.
+ *
+ * Only call this after `requireAuth`, with that call's own userId and orgId:
+ * the reasoning here is "this caller is a member of this organisation", and it
+ * is not true of a userId that arrived any other way.
+ */
+export async function requireOrgMemberPermission(
+  ctx: AuthCtx,
+  userId: string,
+  orgId: string,
+  permission: string
+): Promise<void> {
+  const grant = await ctx.db
+    .query("orgPermissions")
+    .withIndex("by_userId_and_orgId", (q) =>
+      q.eq("userId", userId).eq("orgId", orgId)
+    )
+    .first();
+
+  // A member with nothing narrowing them is an administrator of it.
+  if (!grant) return;
+  if (grant.role === "admin" && grant.isActive) return;
+
+  // A member who *has* been given a limited grant is held to it, so somebody
+  // invited to add events cannot approve their own submissions.
+  await requirePermission(ctx, userId, orgId, permission);
+}
+
+/**
  * Resolves the effective permissions list for a user within an org.
  * Used when multiple permissions need to be checked together (tiered logic).
  */
