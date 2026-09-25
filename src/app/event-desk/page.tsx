@@ -7,6 +7,7 @@ import { useAuth, SignOutButton } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { EventForm } from "@/app/admin/events/event-form";
+import { DownloadEventsButton } from "@/app/admin/events/download-events-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -151,7 +152,7 @@ export default function EventDeskPage() {
               : " · what you add waits for approval"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             onClick={() => {
               setEditing(null);
@@ -161,6 +162,12 @@ export default function EventDeskPage() {
             <CalendarPlus className="mr-2 h-4 w-4" />
             Add event
           </Button>
+          {/*
+            The same download the administrator has: a year of the calendar as
+            a printable PDF, a month to a page, for sending to whoever sets the
+            printed edition.
+          */}
+          <DownloadEventsButton calendarEditions={calendarEditions ?? []} />
           <SignOutButton redirectUrl="/">
             <Button variant="outline">Sign out</Button>
           </SignOutButton>

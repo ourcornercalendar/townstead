@@ -339,3 +339,62 @@ describe("what the desk shows the person standing at it", () => {
     expect(await t.query(api.teamInvites.queries.myWorkspace, {})).toBeNull();
   });
 });
+
+describe("the download the designer gets", () => {
+  it("lets a helper read the edition the calendar is named after", async () => {
+    // The PDF route looks the edition up by id to label the file. Before this,
+    // that lookup required Clerk organisation membership, so a helper could
+    // generate the calendar but not name it.
+    const { base, helper } = await withHelper([
+      "events:create",
+      "events:manage_all",
+    ]);
+    const editionId = await base.run(async (ctx) =>
+      ctx.db.insert("calendarEditions", {
+        orgId: ORG,
+        name: "Elk Grove 2027",
+        code: "EG27",
+        isDeleted: false,
+      })
+    );
+
+    const edition = await helper.query(api.calendarEditions.queries.getById, {
+      id: editionId,
+    });
+    expect(edition).not.toBeNull();
+    expect(edition!.name).toBe("Elk Grove 2027");
+  });
+
+  it("does not let her read another organisation's edition", async () => {
+    const { base, helper } = await withHelper([
+      "events:create",
+      "events:manage_all",
+    ]);
+    const theirs = await base.run(async (ctx) =>
+      ctx.db.insert("calendarEditions", {
+        orgId: OTHER,
+        name: "Someone Else 2027",
+        code: "SE27",
+        isDeleted: false,
+      })
+    );
+    expect(
+      await helper.query(api.calendarEditions.queries.getById, { id: theirs })
+    ).toBeNull();
+  });
+
+  it("gives an anonymous caller nothing", async () => {
+    const base = convexTest(schema, modules);
+    const editionId = await base.run(async (ctx) =>
+      ctx.db.insert("calendarEditions", {
+        orgId: ORG,
+        name: "Elk Grove 2027",
+        code: "EG27",
+        isDeleted: false,
+      })
+    );
+    expect(
+      await base.query(api.calendarEditions.queries.getById, { id: editionId })
+    ).toBeNull();
+  });
+});

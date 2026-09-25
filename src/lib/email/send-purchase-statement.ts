@@ -10,7 +10,7 @@ export async function sendPurchaseStatementEmail(
   purchaseId: Id<"purchases">,
   orgId: string
 ) {
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
 
   const [data, settings] = await Promise.all([
     convex.query(api.billing.queries.getStatementDataByPurchase, {

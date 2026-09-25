@@ -10,7 +10,7 @@ export async function sendStatementEmail(
   contactId: Id<"contacts">,
   orgId: string
 ) {
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
 
   const [data, settings] = await Promise.all([
     convex.query(api.billing.queries.getStatementData, {

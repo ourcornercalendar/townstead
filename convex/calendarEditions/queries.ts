@@ -1,6 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { isOwnDoc, requireWorkspace } from "../auth.helpers";
+import { requireWorkspace } from "../auth.helpers";
 
 export const list = query({
   args: { orgId: v.string() },
@@ -23,7 +23,17 @@ export const getById = query({
     // Looking a record up by id alone crosses org boundaries: the id is the
     // only thing asked for, so any id works. Anything not ours reads as
     // empty, which is what a missing record already looked like.
-    if (!(await isOwnDoc(ctx, await ctx.db.get(args.id)))) return null;
-    return await ctx.db.get(args.id);
+    //
+    // Readable by a calendar helper as well as an organisation member: the
+    // edition's name is what the downloaded calendar is labelled with, and
+    // withholding it would mean she could produce the file but not name it.
+    const edition = await ctx.db.get(args.id);
+    if (!edition) return null;
+    try {
+      await requireWorkspace(ctx, edition.orgId);
+    } catch {
+      return null;
+    }
+    return edition;
   },
 });

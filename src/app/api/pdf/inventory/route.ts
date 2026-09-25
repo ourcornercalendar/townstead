@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       ? undefined
       : (adIdsRaw.split(",").filter(Boolean) as Id<"advertisements">[]);
 
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
   const data = await convex.query(api.dashboard.queries.getPrintInventoryData, {
     orgId,
     year,

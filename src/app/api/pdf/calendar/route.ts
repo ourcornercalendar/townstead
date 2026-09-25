@@ -8,10 +8,7 @@ import { generateCalendarPdf } from "@/lib/pdf/calendar-grid";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const { orgId } = await auth();
-  if (!orgId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { orgId: clerkOrgId } = await auth();
 
   const { searchParams } = request.nextUrl;
   const yearStr = searchParams.get("year");
@@ -23,7 +20,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid year" }, { status: 400 });
   }
 
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
+
+  // Whoever is asking is either an administrator, who carries the
+  // organisation on their sign-in, or a calendar helper, who deliberately does
+  // not belong to one and whose organisation is recorded in the grant instead.
+  // This is the file the printed calendar is set from, so the person keeping
+  // the calendar needs to be able to hand it to the designer without going
+  // through Joyce every time.
+  let orgId = clerkOrgId;
+  if (!orgId) {
+    const workspace = await convex.query(
+      api.teamInvites.queries.myWorkspace,
+      {}
+    );
+    orgId = workspace?.orgId ?? null;
+  }
+  if (!orgId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const editionIdParam = searchParams.get("calendarEditionId");
 
   let calendarEditionId: Id<"calendarEditions"> | null = null;
