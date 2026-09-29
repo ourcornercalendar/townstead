@@ -31,7 +31,12 @@ export const getById = query({
     if (!edition) return null;
     try {
       await requireWorkspace(ctx, edition.orgId);
-    } catch {
+    } catch (err) {
+      // "Belongs to someone else" reads as empty, which is what a missing
+      // record already looked like. "Not signed in" is a different thing and
+      // must say so: swallowing it turned a token problem into "Calendar
+      // edition not found" on the PDF download, and cost an afternoon.
+      if (err instanceof Error && err.message === "Not authenticated") throw err;
       return null;
     }
     return edition;
