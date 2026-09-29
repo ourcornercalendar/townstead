@@ -28,11 +28,55 @@ export async function getConvexClient(): Promise<ConvexHttpClient> {
   // Never cached: see above.
   const client = new ConvexHttpClient(url);
 
-  const { getToken } = await auth();
-  const token = await getToken({ template: "convex" });
+  const { getToken, sessionClaims } = await auth();
+  const token = await fetchConvexToken(getToken, sessionClaims);
   if (token) {
     client.setAuth(token);
   }
 
   return client;
+}
+
+/** Does this session token already say it is for Convex? */
+function audienceIsConvex(claims: unknown): boolean {
+  const aud = (claims as { aud?: unknown } | null | undefined)?.aud;
+  return aud === "convex" || (Array.isArray(aud) && aud.includes("convex"));
+}
+
+/**
+ * Ask Clerk for a token Convex will accept.
+ *
+ * There are two ways a Clerk project can be wired to Convex, and which one you
+ * have decides where the token comes from:
+ *
+ * - **the newer integration** — the ordinary session token already carries
+ *   `aud: "convex"`, and there is no JWT template of that name. Asking for one
+ *   returns nothing.
+ * - **the older setup** — a JWT template named `convex` mints the token.
+ *
+ * This mirrors what `ConvexProviderWithClerk` does in the browser, which is
+ * why the site's own pages work: it checks the audience first and only falls
+ * back to the template. Asking only for the template, as this did at first,
+ * quietly produced no token on a project using the newer integration -- and an
+ * absent token looks exactly like being signed out, so a PDF came back as
+ * "Calendar edition not found" rather than saying anything about sign-in.
+ */
+async function fetchConvexToken(
+  getToken: (opts?: { template?: string }) => Promise<string | null>,
+  sessionClaims: unknown
+): Promise<string | null> {
+  const attempts = audienceIsConvex(sessionClaims)
+    ? [undefined, { template: "convex" }]
+    : [{ template: "convex" }, undefined];
+
+  for (const opts of attempts) {
+    try {
+      const token = opts ? await getToken(opts) : await getToken();
+      if (token) return token;
+    } catch {
+      // A template that does not exist throws rather than returning null.
+      // Try the other way before giving up.
+    }
+  }
+  return null;
 }

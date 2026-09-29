@@ -25,13 +25,15 @@ vi.mock("convex/browser", () => ({
 }));
 
 const getToken = vi.fn();
+let sessionClaims: unknown = null;
 vi.mock("@clerk/nextjs/server", () => ({
-  auth: async () => ({ getToken }),
+  auth: async () => ({ getToken, sessionClaims }),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   constructed.length = 0;
+  sessionClaims = null;
   process.env.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud";
 });
 
@@ -45,10 +47,8 @@ describe("getConvexClient", () => {
     expect(setAuth).toHaveBeenCalledWith("a-real-token");
   });
 
-  it("asks for the `convex` JWT template, the one the browser uses", async () => {
-    // A token from any other template presents a different audience and is
-    // rejected by convex/auth.config.ts, which would look exactly like being
-    // signed out.
+  it("asks for the `convex` JWT template when the session is not already for Convex", async () => {
+    sessionClaims = { aud: "some-other-audience" };
     getToken.mockResolvedValue("a-real-token");
     const { getConvexClient } = await import("./convex-server");
 
@@ -89,5 +89,73 @@ describe("getConvexClient", () => {
     await expect(getConvexClient()).rejects.toThrow(
       /Missing NEXT_PUBLIC_CONVEX_URL/
     );
+  });
+});
+
+describe("the two ways Clerk can be wired to Convex", () => {
+  // Convex's own ConvexProviderWithClerk checks the audience first and only
+  // falls back to the named template. The server has to do the same, or a
+  // project on the newer integration gets no token at all -- which is what
+  // turned a calendar download into "Calendar edition not found".
+
+  it("uses the plain session token when it already says aud: convex", async () => {
+    sessionClaims = { aud: "convex" };
+    getToken.mockImplementation(async (opts?: { template?: string }) =>
+      opts?.template ? null : "session-token"
+    );
+    const { getConvexClient } = await import("./convex-server");
+
+    await getConvexClient();
+
+    expect(setAuth).toHaveBeenCalledWith("session-token");
+  });
+
+  it("accepts aud given as a list", async () => {
+    sessionClaims = { aud: ["convex", "something-else"] };
+    getToken.mockImplementation(async (opts?: { template?: string }) =>
+      opts?.template ? null : "session-token"
+    );
+    const { getConvexClient } = await import("./convex-server");
+
+    await getConvexClient();
+
+    expect(setAuth).toHaveBeenCalledWith("session-token");
+  });
+
+  it("falls back to the session token when the template does not exist", async () => {
+    // The exact failure Joyce hit: no template of that name, so the call
+    // throws, and asking only for the template left the request anonymous.
+    sessionClaims = null;
+    getToken.mockImplementation(async (opts?: { template?: string }) => {
+      if (opts?.template) throw new Error("No JWT template exists with name: convex");
+      return "session-token";
+    });
+    const { getConvexClient } = await import("./convex-server");
+
+    await getConvexClient();
+
+    expect(setAuth).toHaveBeenCalledWith("session-token");
+  });
+
+  it("falls back to the template when the session token is empty", async () => {
+    sessionClaims = { aud: "convex" };
+    getToken.mockImplementation(async (opts?: { template?: string }) =>
+      opts?.template ? "template-token" : null
+    );
+    const { getConvexClient } = await import("./convex-server");
+
+    await getConvexClient();
+
+    expect(setAuth).toHaveBeenCalledWith("template-token");
+  });
+
+  it("gives up quietly when neither works", async () => {
+    getToken.mockResolvedValue(null);
+    const { getConvexClient } = await import("./convex-server");
+
+    const client = await getConvexClient();
+
+    expect(client).toBeDefined();
+    expect(setAuth).not.toHaveBeenCalled();
   });
 });
