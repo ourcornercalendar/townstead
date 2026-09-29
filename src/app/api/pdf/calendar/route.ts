@@ -47,9 +47,24 @@ export async function GET(request: NextRequest) {
   let editionSlug = "";
 
   if (editionIdParam) {
-    const edition = await convex.query(api.calendarEditions.queries.getById, {
-      id: editionIdParam as Id<"calendarEditions">,
-    });
+    let edition;
+    try {
+      edition = await convex.query(api.calendarEditions.queries.getById, {
+        id: editionIdParam as Id<"calendarEditions">,
+      });
+    } catch (err) {
+      // Nearly always a token that Convex would not accept, which has nothing
+      // to do with the edition. Saying "not found" here sent us looking in the
+      // wrong place once already.
+      const message = err instanceof Error ? err.message : String(err);
+      if (/Not authenticated|No organization selected/.test(message)) {
+        return NextResponse.json(
+          { error: "Not signed in to the calendar. Sign out and back in, then try again." },
+          { status: 401 }
+        );
+      }
+      throw err;
+    }
     if (!edition || edition.orgId !== orgId || edition.isDeleted) {
       return NextResponse.json(
         { error: "Calendar edition not found" },
