@@ -383,7 +383,13 @@ describe("the download the designer gets", () => {
     ).toBeNull();
   });
 
-  it("gives an anonymous caller nothing", async () => {
+  it("tells an anonymous caller they are not signed in, rather than 'not found'", async () => {
+    // This test asserted `null` when it was first written, and that was the
+    // wrong contract. A token problem then surfaced to Joyce as "Calendar
+    // edition not found" on the PDF download -- an error about the wrong
+    // thing entirely, which sent us looking at her calendar editions instead
+    // of at the sign-in. Belonging to another organisation still reads as
+    // empty; not being signed in says so.
     const base = convexTest(schema, modules);
     const editionId = await base.run(async (ctx) =>
       ctx.db.insert("calendarEditions", {
@@ -393,8 +399,8 @@ describe("the download the designer gets", () => {
         isDeleted: false,
       })
     );
-    expect(
-      await base.query(api.calendarEditions.queries.getById, { id: editionId })
-    ).toBeNull();
+    await expect(
+      base.query(api.calendarEditions.queries.getById, { id: editionId })
+    ).rejects.toThrow(/Not authenticated/);
   });
 });
