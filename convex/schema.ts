@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { adStatusValidator } from "./contacts/adStatus";
 
 export default defineSchema({
   calendarEditions: defineTable({
@@ -92,6 +93,11 @@ export default defineSchema({
     showOnWebsite: v.optional(v.boolean()),
     lat: v.optional(v.number()),
     lng: v.optional(v.number()),
+    // Where this business's advertisement has got to -- see
+    // contacts/adStatus.ts. Absent means nobody has set one yet, which is
+    // shown as "Not set" rather than guessed at.
+    adStatus: v.optional(adStatusValidator),
+    adStatusUpdatedAt: v.optional(v.number()),
     orgId: v.string(),
     isDeleted: v.optional(v.boolean()),
     updatedAt: v.optional(v.number()),

@@ -27,8 +27,31 @@ describe("AdvertiserLegend", () => {
   });
 
   it("applies deterministic background colors from contact IDs", () => {
-    render(<AdvertiserLegend contacts={[{ id: "c1", company: "Solo" }]} />);
-    const badge = screen.getByText("Solo");
-    expect(badge.style.backgroundColor).toBeTruthy();
+    // The colour used to be the background of the name itself. It now sits on
+    // a swatch beside it, because the pill also carries the artwork status in
+    // its own colour and two coloured backgrounds inside one another meant
+    // flattening one of them. The colour still has to be there and still has
+    // to come from the contact id -- that is what ties a row here to the
+    // blocks in the grid above.
+    const { container } = render(
+      <AdvertiserLegend contacts={[{ id: "c1", company: "Solo" }]} />
+    );
+    expect(screen.getByText("Solo")).toBeDefined();
+    const swatch = container.querySelector("span[aria-hidden]") as HTMLElement;
+    expect(swatch).not.toBeNull();
+    expect(swatch.style.backgroundColor).toBeTruthy();
+  });
+
+  it("shows the artwork status, and says so when there isn't one", () => {
+    render(
+      <AdvertiserLegend
+        contacts={[
+          { id: "c1", company: "Acme Corp", adStatus: "sent_to_mark" },
+          { id: "c2", company: "Globex Inc" },
+        ]}
+      />
+    );
+    expect(screen.getByText("Sent to Mark")).toBeDefined();
+    expect(screen.getByText("Not set")).toBeDefined();
   });
 });

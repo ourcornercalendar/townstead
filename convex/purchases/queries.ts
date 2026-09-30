@@ -101,6 +101,10 @@ export const list = query({
             ? `${contact.firstName} ${contact.lastName}`
             : "Unknown",
           company: contact?.company ?? "",
+          // The artwork stage belongs to the business, not the purchase, but
+          // Joyce wants to see it wherever a business appears.
+          contactId: purchase.contactId,
+          adStatus: contact?.adStatus,
           editionCode: editionCodes.join(", ") || "Unknown",
           net,
           amountPaid,

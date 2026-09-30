@@ -22,12 +22,16 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { byDisplayName } from "@/lib/sort-names";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { AdStatusSelect } from "@/components/admin/ad-status";
+import type { AdStatus } from "../../../../convex/contacts/adStatus";
 
 interface PurchaseRow {
   _id: string;
   invoiceNumber?: string;
   contactName: string;
   company: string;
+  contactId: Id<"contacts">;
+  adStatus?: AdStatus;
   editionCode: string;
   year: number;
   net: number;
@@ -226,6 +230,19 @@ export function purchaseColumns({
             </p>
           )}
         </div>
+      ),
+    },
+    {
+      id: "adStatus",
+      accessorFn: (row) => row.adStatus ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Ad status" />
+      ),
+      cell: ({ row }) => (
+        <AdStatusSelect
+          contactId={row.original.contactId}
+          status={row.original.adStatus}
+        />
       ),
     },
     {

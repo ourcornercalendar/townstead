@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTableColumnHeader } from "@/components/shared/data-table-column-header";
 import { byDisplayName } from "@/lib/sort-names";
 import { toast } from "sonner";
+import { AdStatusSelect } from "@/components/admin/ad-status";
 
 type Contact = Doc<"contacts">;
 
@@ -179,6 +180,19 @@ export function columns({
         `${row.firstName} ${row.lastName}`,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
+      ),
+    },
+    {
+      id: "adStatus",
+      accessorFn: (row) => row.adStatus ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Ad status" />
+      ),
+      cell: ({ row }) => (
+        <AdStatusSelect
+          contactId={row.original._id}
+          status={row.original.adStatus}
+        />
       ),
     },
     {
