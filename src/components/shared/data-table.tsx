@@ -60,6 +60,12 @@ type DataTableBaseProps<TData, TValue> = {
   noPagination?: boolean;
   initialSorting?: SortingState;
   initialColumnFilters?: ColumnFiltersState;
+  /**
+   * Told whenever the column sort changes. For a table whose rows can be
+   * rearranged by hand: those controls have to know when the view is no
+   * longer in the stored order.
+   */
+  onSortingChange?: (sorting: SortingState) => void;
 };
 
 export type DataTableProps<TData, TValue> =
@@ -102,6 +108,7 @@ export function DataTable<TData, TValue>({
   noPagination,
   initialSorting,
   initialColumnFilters,
+  onSortingChange,
   ...rest
 }: DataTableProps<TData, TValue>) {
   const enableRowSelection = rest.enableRowSelection === true;
@@ -163,7 +170,13 @@ export function DataTable<TData, TValue>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      setSorting((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        onSortingChange?.(next);
+        return next;
+      });
+    },
     onColumnFiltersChange: setColumnFilters,
     enableRowSelection,
     onRowSelectionChange: setRowSelection,

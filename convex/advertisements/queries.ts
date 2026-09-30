@@ -1,16 +1,21 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireOrg, isOwnDoc } from "../auth.helpers";
+import { sortAdvertisements } from "./order";
 
 export const list = query({
   args: { orgId: v.string() },
   handler: async (ctx, args) => {
     await requireOrg(ctx, args.orgId);
-    return await ctx.db
+    const ads = await ctx.db
       .query("advertisements")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
       .filter((q) => q.neq(q.field("isDeleted"), true))
       .collect();
+    // Sorted here rather than on the page, so every screen that lists
+    // advertisements -- the purchase wizard, the print picker -- shows them
+    // in the same order Joyce arranged.
+    return sortAdvertisements(ads);
   },
 });
 

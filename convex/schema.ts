@@ -17,6 +17,10 @@ export default defineSchema({
     slotsPerMonth: v.number(),
     orgId: v.string(),
     isDeleted: v.optional(v.boolean()),
+    // The running order Joyce arranges by hand. Optional because every
+    // advertisement that already exists predates it: absent means "fall back
+    // to the default order", which is worked out in advertisements/order.ts.
+    displayOrder: v.optional(v.number()),
   }).index("by_orgId", ["orgId"]),
 
   adPricing: defineTable({
