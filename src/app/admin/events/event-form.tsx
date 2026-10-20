@@ -57,6 +57,14 @@ import {
   type EventScheduleType,
 } from "@/lib/events/recurrence";
 
+/**
+ * Sentinel for the "No category" option. Radix Select reads an empty string
+ * as "nothing is chosen" and will not render it as a selectable item, so a
+ * clear option needs a real value; it is turned back into undefined before
+ * anything is saved.
+ */
+const NONE_VALUE = "__none__";
+
 /** The three bands a printed calendar square is divided into. */
 const PRINT_PLACEMENTS = [
   { value: "TOP", label: "Top" },
@@ -119,6 +127,13 @@ interface EventFormProps {
   onOpenChange: (open: boolean) => void;
   editing: Doc<"events"> | null;
   calendarEditions: Doc<"calendarEditions">[];
+  /**
+   * Which organisation the event belongs to. The admin screens leave this out
+   * and it comes from the signed-in Clerk organisation, as it always has. The
+   * events desk passes it, because somebody invited to help with the calendar
+   * is deliberately not a member of any organisation and so has none to read.
+   */
+  orgId?: string;
 }
 
 export function EventForm({
@@ -126,8 +141,10 @@ export function EventForm({
   onOpenChange,
   editing,
   calendarEditions,
+  orgId: orgIdProp,
 }: EventFormProps) {
-  const { orgId } = useOrg();
+  const { orgId: clerkOrgId } = useOrg();
+  const orgId = orgIdProp ?? clerkOrgId;
   const create = useMutation(api.events.mutations.create);
   const update = useMutation(api.events.mutations.update);
   const generateUploadUrl = useMutation(api.events.mutations.generateUploadUrl);
@@ -139,6 +156,15 @@ export function EventForm({
     api.storage.getUrl,
     imageFileId ? { storageId: imageFileId } : "skip"
   );
+
+  // The owner's own event categories — "CSD", "School District" and so on.
+  // She creates and renames them under Admin -> Categories; this form only
+  // offers what is there.
+  const eventCategories =
+    useQuery(
+      api.categories.queries.list,
+      orgId ? { orgId, type: "event" as const } : "skip"
+    ) ?? [];
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -157,6 +183,7 @@ export function EventForm({
       isScusd: false,
       isYearly: false,
       calendarEditionIds: [],
+      categoryId: undefined,
     },
   });
 
@@ -183,6 +210,7 @@ export function EventForm({
         isScusd: editing.isScusd ?? false,
         isYearly: editing.isYearly ?? false,
         calendarEditionIds: (editing.calendarEditionIds as string[]) ?? [],
+        categoryId: (editing.categoryId as string | undefined) ?? undefined,
       });
       setImageFileId(editing.imageFileId ?? undefined);
     } else {
@@ -201,6 +229,7 @@ export function EventForm({
         isScusd: false,
         isYearly: false,
         calendarEditionIds: [],
+        categoryId: undefined,
       });
       setImageFileId(undefined);
     }
@@ -210,7 +239,9 @@ export function EventForm({
     async (file: File) => {
       setUploadingImage(true);
       try {
-        const url = await generateUploadUrl();
+        const url = await generateUploadUrl(
+          orgIdProp ? { orgId: orgIdProp } : {}
+        );
         const result = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": file.type },
@@ -224,7 +255,7 @@ export function EventForm({
         setUploadingImage(false);
       }
     },
-    [generateUploadUrl]
+    [generateUploadUrl, orgIdProp]
   );
 
   const onSubmit = async (values: EventFormValues) => {
@@ -267,6 +298,11 @@ export function EventForm({
           values.calendarEditionIds && values.calendarEditionIds.length > 0
             ? (values.calendarEditionIds as Id<"calendarEditions">[])
             : undefined,
+        // null, not undefined, when nothing is chosen. An argument passed as
+        // undefined never reaches the mutation, so the patch would leave the
+        // old category in place and "No category" would quietly do nothing.
+        // null is the explicit "clear it" signal. (There is a test for this.)
+        categoryId: (values.categoryId || null) as Id<"categories"> | null,
         imageFileId,
       };
 
@@ -315,6 +351,46 @@ export function EventForm({
                     <FormControl>
                       <Input placeholder="Event name" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      {/* NONE_VALUE rather than "": Radix Select reads an
+                          empty string as "nothing chosen" and will not render
+                          it as a selectable item, so a literal sentinel is
+                          needed for the clear option. Translated back to
+                          undefined on change. */}
+                      <Select
+                        value={field.value ?? NONE_VALUE}
+                        onValueChange={(v) =>
+                          field.onChange(v === NONE_VALUE ? undefined : v)
+                        }
+                      >
+                        <SelectTrigger data-testid="event-category">
+                          <SelectValue placeholder="No category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE_VALUE}>No category</SelectItem>
+                          {eventCategories.map((c) => (
+                            <SelectItem key={c._id} value={c._id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormDescription>
+                      {eventCategories.length === 0
+                        ? "No event categories yet — add them under Categories, then come back and file this event under one."
+                        : "Groups this event on the website so visitors can filter by it. Add or rename categories under Categories."}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
