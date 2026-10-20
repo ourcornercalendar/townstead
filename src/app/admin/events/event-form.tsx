@@ -65,6 +65,26 @@ import {
  */
 const NONE_VALUE = "__none__";
 
+/**
+ * The name to show on the category dropdown for a given id.
+ *
+ * Exported so it can be tested on its own, and because getting it wrong is
+ * invisible until someone looks at the screen: the first version left Base
+ * UI to render the value itself, which put the raw Convex document id in
+ * front of the user where the category name belonged.
+ */
+export function categoryLabel(
+  categories: { _id: string; name: string }[],
+  id: string | undefined | null
+): string {
+  if (!id || id === NONE_VALUE) return "No category";
+  const match = categories.find((c) => c._id === id);
+  // An id with no matching category — deleted, or from another org — must
+  // still not print the id. "No category" is wrong but harmless; the id is
+  // noise nobody can act on.
+  return match ? match.name : "No category";
+}
+
 /** The three bands a printed calendar square is divided into. */
 const PRINT_PLACEMENTS = [
   { value: "TOP", label: "Top" },
@@ -374,7 +394,16 @@ export function EventForm({
                         }
                       >
                         <SelectTrigger data-testid="event-category">
-                          <SelectValue placeholder="No category" />
+                          {/* The label has to be worked out here.
+                              This is Base UI, not Radix: its Select.Value
+                              renders the VALUE, so leaving it to its own
+                              devices put the raw Convex document id on
+                              screen — "k57b2x9..." where the category name
+                              should be. Every other select in this codebase
+                              resolves its own label for the same reason. */}
+                          <SelectValue placeholder="No category">
+                            {categoryLabel(eventCategories, field.value)}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE_VALUE}>No category</SelectItem>
