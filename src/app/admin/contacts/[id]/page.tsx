@@ -57,6 +57,7 @@ import { useStableNow } from "@/hooks/use-stable-now";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { PERMISSIONS, DEFAULT_CONTACT_PERMISSIONS } from "../../../../../convex/permissions";
+import { AdStatusSelect } from "@/components/admin/ad-status";
 
 function DetailField({
   label,
@@ -238,13 +239,20 @@ export default function ContactDetailPage() {
         title={fullName}
         description={contact.company ?? undefined}
         actions={
-          <Button
-            variant="outline"
-            onClick={() => setFormOpen(true)}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Ad status</span>
+            <AdStatusSelect
+              contactId={contact._id}
+              status={contact.adStatus}
+            />
+            <Button
+              variant="outline"
+              onClick={() => setFormOpen(true)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          </div>
         }
       />
 

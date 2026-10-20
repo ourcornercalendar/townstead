@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
 
   try {
     const token = await convex.mutation(api.portalInvites.mutations.create, {

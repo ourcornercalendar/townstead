@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("addressBooks", () => {
   it("tenant isolation — org_a cannot see org_b address books", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("addressBooks", {
@@ -22,7 +22,7 @@ describe("addressBooks", () => {
   });
 
   it("CRUD — create, list, update, remove", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const id = await t.mutation(api.addressBooks.mutations.create, {
       orgId: "org_1",
@@ -58,7 +58,7 @@ describe("addressBooks", () => {
   });
 
   it("list returns multiple address books for the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("addressBooks", { name: "A", orgId: "org_1" });

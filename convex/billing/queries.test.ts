@@ -9,7 +9,7 @@ const NOW = 1710000000000;
 
 describe("listPayments", () => {
   it("returns enriched payments with contact info, sorted by date desc", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -65,7 +65,7 @@ describe("listPayments", () => {
   });
 
   it("filters payments by year when year arg is provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -114,7 +114,7 @@ describe("listPayments", () => {
   });
 
   it("returns all payments across years when no year filter", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -156,7 +156,7 @@ describe("listPayments", () => {
   });
 
   it("isolates payments by orgId", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -189,7 +189,7 @@ describe("listPayments", () => {
   });
 
   it("returns empty array when no payments exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const results = await t.query(api.billing.queries.listPayments, {
       orgId: ORG,
@@ -198,7 +198,7 @@ describe("listPayments", () => {
   });
 
   it("shows 'Unknown' contactName when purchase has no contact", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -237,7 +237,7 @@ describe("listPayments", () => {
 
 describe("getInvoiceData", () => {
   it("returns payments sorted by date in the response", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -296,7 +296,7 @@ describe("getInvoiceData", () => {
   });
 
   it("returns enriched scheduled payments with paidAmount and isLate", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -373,7 +373,7 @@ describe("getInvoiceData", () => {
   });
 
   it("returns null for deleted purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -403,7 +403,7 @@ describe("getInvoiceData", () => {
   });
 
   it("tenant isolation — wrong org gets null", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -433,7 +433,7 @@ describe("getInvoiceData", () => {
   });
 
   it("counts unallocated prepaid payments in amountPaid and reduces balance", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -496,7 +496,7 @@ describe("getInvoiceData", () => {
   });
 
   it("does not double-count prepaid payments that have allocations", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -556,7 +556,7 @@ describe("getInvoiceData", () => {
   });
 
   it("returns editionCodes with all edition codes joined for multi-edition purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -604,7 +604,7 @@ describe("getInvoiceData", () => {
   });
 
   it("returns single edition code for single-edition purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -646,7 +646,7 @@ describe("getInvoiceData", () => {
   });
 
   it("returns 'Unknown' editionCodes when purchase has no editions", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -683,7 +683,7 @@ describe("getInvoiceData", () => {
   });
 
   it("uses edition code (not name) for line item calendarName", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -740,7 +740,7 @@ describe("getInvoiceData", () => {
   });
 
   it("uses adPurchases.charge as fallback when adPricing is absent", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -800,7 +800,7 @@ describe("getInvoiceData", () => {
 
 describe("getStatementDataByPurchase", () => {
   it("returns all edition codes in editionName and editionCodes", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -853,7 +853,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("returns null for non-existent purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const fakePurchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -881,7 +881,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("tenant isolation — org B cannot see org A data", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -907,7 +907,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("returns starting balance and empty ledger when no payments or late fees", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -952,7 +952,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("includes payment ledger entries and deducts from balance", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1011,7 +1011,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("does not double-count late unpaid installment in totalAmountDue (BUG 1 regression)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const FUTURE_NOW = new Date(2026, 5, 1).getTime();
 
     const ids = await t.run(async (ctx) => {
@@ -1070,7 +1070,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("does not double-count when only late installments exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const FUTURE_NOW = new Date(2026, 5, 1).getTime();
 
     const ids = await t.run(async (ctx) => {
@@ -1117,7 +1117,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("includes unallocated prepaid in balance (BUG 2 regression)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1166,7 +1166,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("sums multiple prepaid payments (BUG 7 regression)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1230,7 +1230,7 @@ describe("getStatementDataByPurchase", () => {
   });
 
   it("excludes prepaid payments from ledger entries", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1280,7 +1280,7 @@ describe("getStatementDataByPurchase", () => {
 
 describe("getStatementData", () => {
   it("returns all edition codes joined for purchase and payment rows", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1343,7 +1343,7 @@ describe("getStatementData", () => {
   });
 
   it("returns 'Unknown' editionName when purchase has no editions", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1380,7 +1380,7 @@ describe("getStatementData", () => {
   });
 
   it("includes unallocated prepaid in per-purchase balance (BUG 2 regression)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1438,7 +1438,12 @@ describe("getStatementData", () => {
 describe("listThisMonth", () => {
   const MARCH_2026 = new Date(2026, 2, 15).getTime();
 
-  type TestInstance = TestConvex<typeof schema>;
+  // withIdentity() returns a narrower type than TestConvex<typeof schema> --
+  // it drops withIdentity and registerComponent -- so the helpers below take
+  // whatever the authenticated harness actually is rather than the wider type.
+  type TestInstance = ReturnType<
+    TestConvex<typeof schema>["withIdentity"]
+  >;
 
   async function seedContact(t: TestInstance, orgId = ORG) {
     return await t.run(async (ctx) => {
@@ -1483,7 +1488,7 @@ describe("listThisMonth", () => {
   }
 
   it("excludes fully paid past-month items (regression)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     const { spId } = await seedPurchaseWithSchedule(t, contactId, {
@@ -1517,7 +1522,7 @@ describe("listThisMonth", () => {
   });
 
   it("includes unpaid overdue items from past months", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     await seedPurchaseWithSchedule(t, contactId, {
@@ -1538,7 +1543,7 @@ describe("listThisMonth", () => {
   });
 
   it("includes current month items regardless of status", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     const { spId } = await seedPurchaseWithSchedule(t, contactId, {
@@ -1573,7 +1578,7 @@ describe("listThisMonth", () => {
   });
 
   it("excludes future months from current year", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     await seedPurchaseWithSchedule(t, contactId, {
@@ -1592,7 +1597,7 @@ describe("listThisMonth", () => {
   });
 
   it("tenant isolation — org B cannot see org A data", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_other" });
     const contactId = await seedContact(t);
 
     await seedPurchaseWithSchedule(t, contactId, {
@@ -1611,7 +1616,7 @@ describe("listThisMonth", () => {
   });
 
   it("excludes deleted purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     await t.run(async (ctx) => {
@@ -1641,7 +1646,7 @@ describe("listThisMonth", () => {
   });
 
   it("returns empty array when no scheduled payments exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const results = await t.query(api.billing.queries.listThisMonth, {
       orgId: ORG,
@@ -1652,7 +1657,7 @@ describe("listThisMonth", () => {
   });
 
   it("sorts results by dueDate ascending", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
     const contactId = await seedContact(t);
 
     await seedPurchaseWithSchedule(t, contactId, {
@@ -1693,7 +1698,7 @@ describe("getCashFlowReport", () => {
   }
 
   it("defaults to all SPs when paymentYear omitted, scopes when provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1773,7 +1778,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("buckets actual amounts by payment date, not by scheduled payment month", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1846,7 +1851,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("returns all editions when calendarEditionId is omitted", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1910,7 +1915,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("filters by calendarEditionId when provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const ids = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -1976,7 +1981,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("tenant isolation — org B cannot see org A data", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2020,7 +2025,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("excludes soft-deleted purchases", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2078,7 +2083,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("includes prepaid payments in actuals even without allocations", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2132,7 +2137,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("shows cross-year payments via paymentYear filter and all by default", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2208,7 +2213,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("merges multiple purchases for the same contact into one row", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2281,7 +2286,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("computes summary totals across all rows", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const editionId = await ctx.db.insert("calendarEditions", {
@@ -2358,7 +2363,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("returns empty rows when no purchases match", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const result = await t.query(api.billing.queries.getCashFlowReport, {
       orgId: ORG,
@@ -2371,7 +2376,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("shows actual SP amounts without scaling (no scheduleBase adjustment)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2430,7 +2435,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("does not inflate projected when payment lands in an unscheduled month", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -2489,7 +2494,7 @@ describe("getCashFlowReport", () => {
   });
 
   it("falls back to sum of scheduled payments when no payment terms exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

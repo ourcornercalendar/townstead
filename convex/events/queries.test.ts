@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("events.queries.list", () => {
   it("returns events for the given orgId", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -23,7 +23,7 @@ describe("events.queries.list", () => {
   });
 
   it("tenant isolation — org A cannot see org B events", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -39,7 +39,7 @@ describe("events.queries.list", () => {
   });
 
   it("excludes soft-deleted events", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -62,7 +62,7 @@ describe("events.queries.list", () => {
   });
 
   it("returns events where isDeleted is undefined (not set)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -80,7 +80,7 @@ describe("events.queries.list", () => {
 
 describe("events.queries.getById", () => {
   it("returns the event by id", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const eventId = await t.run(async (ctx) => {
       return await ctx.db.insert("events", {
@@ -100,7 +100,7 @@ describe("events.queries.getById", () => {
 
 describe("events.queries.listByDateRange", () => {
   it("returns events within the date range for org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -133,7 +133,7 @@ describe("events.queries.listByDateRange", () => {
   });
 
   it("excludes soft-deleted events within range", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -160,7 +160,7 @@ describe("events.queries.listByDateRange", () => {
   });
 
   it("tenant isolation — does not return other org events in range", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {
@@ -180,7 +180,7 @@ describe("events.queries.listByDateRange", () => {
   });
 
   it("includes events at range boundaries", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("events", {

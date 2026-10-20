@@ -4,6 +4,10 @@ export const PERMISSIONS = {
   EVENTS_CREATE: "events:create",
   EVENTS_UPDATE_OWN: "events:update_own",
   EVENTS_DELETE_OWN: "events:delete_own",
+  // Edit or delete any event in the organisation, not only one's own. For a
+  // colleague genuinely sharing the calendar work rather than contributing to
+  // it. Deliberately does not include approving other people's submissions.
+  EVENTS_MANAGE_ALL: "events:manage_all",
   EVENTS_APPROVE: "events:approve",
 
   // Blog — tiered actions
@@ -88,6 +92,30 @@ export const DEFAULT_USER_PERMISSIONS: Permission[] = [
   PERMISSIONS.EVENTS_SUBMIT,
   PERMISSIONS.VIDEOS_SUBMIT,
   PERMISSIONS.COUPONS_CLAIM,
+];
+
+/**
+ * What an admin is allowed to hand to a staff member from the Team screen.
+ *
+ * Deliberately excludes every `portal:*` permission. Those open the advertiser
+ * billing portal -- invoices, payments, statements -- which has nothing to do
+ * with helping run the calendar, and is exactly the sort of thing that should
+ * not be reachable by ticking a box on a page about adding a helper.
+ */
+export const TEAM_ASSIGNABLE_PERMISSIONS: Permission[] = [
+  PERMISSIONS.EVENTS_SUBMIT,
+  PERMISSIONS.EVENTS_CREATE,
+  PERMISSIONS.EVENTS_UPDATE_OWN,
+  PERMISSIONS.EVENTS_DELETE_OWN,
+  PERMISSIONS.EVENTS_MANAGE_ALL,
+  PERMISSIONS.BLOG_SUBMIT,
+  PERMISSIONS.BLOG_CREATE,
+  PERMISSIONS.BLOG_UPDATE_OWN,
+  PERMISSIONS.BLOG_DELETE_OWN,
+  PERMISSIONS.VIDEOS_SUBMIT,
+  PERMISSIONS.VIDEOS_CREATE,
+  PERMISSIONS.VIDEOS_UPDATE_OWN,
+  PERMISSIONS.VIDEOS_DELETE_OWN,
 ];
 
 export const ROLE_VALUES = ["admin", "contact", "user"] as const;

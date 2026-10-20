@@ -11,6 +11,7 @@ import {
   isScheduledPaymentLate,
   computeScheduledPaymentPaid,
 } from "./helpers";
+import { requireOrg } from "../auth.helpers";
 
 export const listPayments = query({
   args: {
@@ -18,6 +19,7 @@ export const listPayments = query({
     year: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     let payments: Doc<"payments">[];
 
     if (args.year) {
@@ -83,6 +85,7 @@ export const listOwedPayments = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     let purchases: Doc<"purchases">[];
 
     if (args.year) {
@@ -194,6 +197,7 @@ export const listThisMonth = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const now = args.now;
     const currentDate = new Date(now);
     const currentMonth = currentDate.getMonth() + 1;
@@ -294,6 +298,7 @@ export const getCashFlowReport = query({
     paymentYear: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const viewYear = args.paymentYear;
 
     const allPurchases = await ctx.db
@@ -511,6 +516,7 @@ export const getInvoiceData = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchase = await ctx.db.get(args.purchaseId);
     if (!purchase || purchase.isDeleted || purchase.orgId !== args.orgId) {
       return null;
@@ -657,6 +663,7 @@ export const getStatementData = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const contact = await ctx.db.get(args.contactId);
     if (!contact || contact.orgId !== args.orgId) return null;
 
@@ -793,6 +800,7 @@ export const getStatementDataByPurchase = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchase = await ctx.db.get(args.purchaseId);
     if (!purchase || purchase.isDeleted || purchase.orgId !== args.orgId) {
       return null;
@@ -956,6 +964,7 @@ export const getStatementDataByPurchase = query({
 export const auditScheduledPayments = query({
   args: { orgId: v.string() },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchases = await ctx.db
       .query("purchases")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))

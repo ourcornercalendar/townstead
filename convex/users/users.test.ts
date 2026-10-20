@@ -8,8 +8,9 @@ describe("users", () => {
   describe("upsertUser (internal mutation)", () => {
     it("creates a new user when none exists", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-      const userId = await t.mutation(internal.users.mutations.upsertUser, {
+      const userId = await asOrg.mutation(internal.users.mutations.upsertUser, {
         clerkId: "clerk_123",
         email: "jane@example.com",
         firstName: "Jane",
@@ -29,14 +30,15 @@ describe("users", () => {
 
     it("updates existing user instead of creating duplicate", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-      const id1 = await t.mutation(internal.users.mutations.upsertUser, {
+      const id1 = await asOrg.mutation(internal.users.mutations.upsertUser, {
         clerkId: "clerk_123",
         email: "old@example.com",
         firstName: "Old",
       });
 
-      const id2 = await t.mutation(internal.users.mutations.upsertUser, {
+      const id2 = await asOrg.mutation(internal.users.mutations.upsertUser, {
         clerkId: "clerk_123",
         email: "new@example.com",
         firstName: "New",
@@ -55,6 +57,7 @@ describe("users", () => {
   describe("getByClerkId", () => {
     it("returns user by clerk ID", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
       await t.run(async (ctx) => {
         await ctx.db.insert("users", {
@@ -65,7 +68,7 @@ describe("users", () => {
         });
       });
 
-      const user = await t.query(api.users.queries.getByClerkId, {
+      const user = await asOrg.query(api.users.queries.getByClerkId, {
         clerkId: "clerk_abc",
       });
       expect(user).not.toBeNull();
@@ -74,8 +77,9 @@ describe("users", () => {
 
     it("returns null for unknown clerk ID", async () => {
       const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-      const user = await t.query(api.users.queries.getByClerkId, {
+      const user = await asOrg.query(api.users.queries.getByClerkId, {
         clerkId: "nonexistent",
       });
       expect(user).toBeNull();

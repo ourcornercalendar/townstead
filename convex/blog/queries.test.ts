@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("blog.queries.list", () => {
   it("returns blog posts for the given orgId", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -25,7 +25,7 @@ describe("blog.queries.list", () => {
   });
 
   it("tenant isolation — org A cannot see org B posts", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -43,7 +43,7 @@ describe("blog.queries.list", () => {
   });
 
   it("excludes soft-deleted posts", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -70,7 +70,7 @@ describe("blog.queries.list", () => {
   });
 
   it("filters by status when provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -115,7 +115,7 @@ describe("blog.queries.list", () => {
   });
 
   it("returns all statuses when status is not provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -143,7 +143,7 @@ describe("blog.queries.list", () => {
 
 describe("blog.queries.getById", () => {
   it("returns the blog post by id", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const postId = await t.run(async (ctx) => {
       return await ctx.db.insert("blogPosts", {
@@ -165,7 +165,7 @@ describe("blog.queries.getById", () => {
 
 describe("blog.queries.getBySlug", () => {
   it("returns the blog post matching orgId and slug", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -187,7 +187,7 @@ describe("blog.queries.getBySlug", () => {
   });
 
   it("returns null when slug does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const post = await t.query(api.blog.queries.getBySlug, {
       orgId: "org_1",
@@ -197,7 +197,7 @@ describe("blog.queries.getBySlug", () => {
   });
 
   it("excludes soft-deleted posts from slug lookup", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {
@@ -218,7 +218,7 @@ describe("blog.queries.getBySlug", () => {
   });
 
   it("tenant isolation — cannot access other org slug", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("blogPosts", {

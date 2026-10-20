@@ -532,6 +532,7 @@ describe("public.mutations.submitVideo", () => {
 describe("public.queries.listVideos — approval filtering", () => {
   it("excludes unapproved videos from public listing", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("tenantBranding", {
@@ -558,7 +559,7 @@ describe("public.queries.listVideos — approval filtering", () => {
       });
     });
 
-    const videos = await t.query(api.public.queries.listVideos, {
+    const videos = await asOrg.query(api.public.queries.listVideos, {
       orgSlug: "vid-list-org",
     });
     expect(videos).toHaveLength(2);

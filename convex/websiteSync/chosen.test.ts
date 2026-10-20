@@ -52,7 +52,7 @@ afterEach(() => {
  * convexTest returns is specific to this schema, and naming it in a signature
  * costs more than the line it saves.
  */
-const makeHarness = () => convexTest(schema, modules);
+const makeHarness = () => convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 type Harness = ReturnType<typeof makeHarness>;
 
 async function scheduledPushes(t: Harness) {

@@ -146,13 +146,13 @@ export const create = mutation({
       }
       isApproved = !action.needsApproval;
     }
-
     // null is the form's way of saying "no category"; the stored shape for
     // that is simply an absent field.
     const { categoryId, ...rest } = args;
     return await ctx.db.insert("events", {
       ...rest,
       categoryId: categoryId ?? undefined,
+
       isApproved,
       submittedBy: userId,
       isDeleted: false,

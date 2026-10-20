@@ -15,7 +15,7 @@ export async function GET(
   }
 
   const { id } = await params;
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
 
   const [data, settings] = await Promise.all([
     convex.query(api.billing.queries.getStatementDataByPurchase, {

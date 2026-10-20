@@ -45,6 +45,10 @@ const PERMISSION_META: Record<Permission, PermissionInfo> = {
     label: "Delete Own Events",
     description: "Remove events they previously submitted",
   },
+  [PERMISSIONS.EVENTS_MANAGE_ALL]: {
+    label: "Edit Any Event",
+    description: "Edit or delete any event in the calendar, not only their own",
+  },
   [PERMISSIONS.EVENTS_APPROVE]: {
     label: "Approve Events",
     description: "Review and approve/reject submitted events",

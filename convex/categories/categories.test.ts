@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("categories", () => {
   it("tenant isolation — org_a cannot see org_b categories", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("categories", {
@@ -24,7 +24,7 @@ describe("categories", () => {
   });
 
   it("soft-deleted categories are excluded from list", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("categories", {
@@ -49,7 +49,7 @@ describe("categories", () => {
   });
 
   it("CRUD — create, read, update, softDelete", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const id = await t.mutation(api.categories.mutations.create, {
       orgId: "org_1",
@@ -76,7 +76,7 @@ describe("categories", () => {
   });
 
   it("list filters by type when type argument is provided", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("categories", {
@@ -109,7 +109,7 @@ describe("categories", () => {
 
 describe("categories.seedBusinessCategories", () => {
   it("inserts business categories for the given org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(internal.categories.mutations.seedBusinessCategories, {
       orgId: "org_1",
@@ -129,7 +129,7 @@ describe("categories.seedBusinessCategories", () => {
   });
 
   it("skips duplicates when run multiple times", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(internal.categories.mutations.seedBusinessCategories, {
       orgId: "org_1",
@@ -155,7 +155,7 @@ describe("categories.seedBusinessCategories", () => {
   });
 
   it("isolates seeded categories by org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_b" });
 
     await t.mutation(internal.categories.mutations.seedBusinessCategories, {
       orgId: "org_a",

@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, DollarSign, Trash2 } from "lucide-react";
+import { MoreHorizontal, DollarSign, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useState } from "react";
@@ -80,12 +80,80 @@ function ActionsCell({
   );
 }
 
+/**
+ * Up and down arrows for the running order.
+ *
+ * Disabled, rather than hidden, while a column sort is active: moving a row
+ * "up" is meaningless when the rows on screen are not in the stored order,
+ * and a button that silently does something other than what it looks like is
+ * worse than one that is plainly unavailable.
+ */
+function OrderCell({
+  row,
+  onMove,
+  sortingActive,
+}: {
+  row: { index: number };
+  onMove: (index: number, direction: -1 | 1) => void;
+  sortingActive: boolean;
+}) {
+  const title = sortingActive
+    ? "Clear the column sort to rearrange"
+    : undefined;
+  return (
+    <div className="flex flex-col -my-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-6"
+        disabled={sortingActive}
+        title={title}
+        aria-label="Move up"
+        onClick={() => onMove(row.index, -1)}
+      >
+        <ChevronUp className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-6"
+        disabled={sortingActive}
+        title={title}
+        aria-label="Move down"
+        onClick={() => onMove(row.index, 1)}
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export function columns({
   onPricing,
+  onMove,
+  sortingActive = false,
 }: {
   onPricing: (ad: Advertisement) => void;
+  onMove?: (index: number, direction: -1 | 1) => void;
+  sortingActive?: boolean;
 }): ColumnDef<Advertisement>[] {
   return [
+    ...(onMove
+      ? [
+          {
+            id: "order",
+            header: "",
+            enableSorting: false,
+            cell: ({ row }: { row: { index: number } }) => (
+              <OrderCell
+                row={row}
+                onMove={onMove}
+                sortingActive={sortingActive}
+              />
+            ),
+          } as ColumnDef<Advertisement>,
+        ]
+      : []),
     {
       accessorKey: "name",
       header: ({ column }) => (

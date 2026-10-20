@@ -11,7 +11,7 @@ const zeroPrices = {
 
 describe("adPricing.queries.listByAdvertisement", () => {
   it("returns pricing records for an advertisement", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {
@@ -51,7 +51,7 @@ describe("adPricing.queries.listByAdvertisement", () => {
   });
 
   it("returns empty when no pricing exists for advertisement", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.run(async (ctx) => {
       return await ctx.db.insert("advertisements", {
@@ -70,7 +70,7 @@ describe("adPricing.queries.listByAdvertisement", () => {
   });
 
   it("returns multiple pricing records for same ad, different editions/years", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {
@@ -118,7 +118,7 @@ describe("adPricing.queries.listByAdvertisement", () => {
 
 describe("adPricing.queries.getByAdEditionYear", () => {
   it("returns pricing for ad+edition+year combo", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {
@@ -160,7 +160,7 @@ describe("adPricing.queries.getByAdEditionYear", () => {
   });
 
   it("returns null when no matching combo exists", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { adId, editionId } = await t.run(async (ctx) => {
       const ad = await ctx.db.insert("advertisements", {

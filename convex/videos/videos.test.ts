@@ -7,6 +7,7 @@ import { modules } from "../test.setup";
 describe("videos", () => {
   it("tenant isolation — org_a cannot see org_b videos", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("videos", {
@@ -16,7 +17,7 @@ describe("videos", () => {
       });
     });
 
-    const results = await t.query(api.videos.queries.list, {
+    const results = await asOrg.query(api.videos.queries.list, {
       orgId: "org_a",
     });
     expect(results).toHaveLength(0);
@@ -24,6 +25,7 @@ describe("videos", () => {
 
   it("soft-deleted videos are excluded from list", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("videos", {
@@ -38,7 +40,7 @@ describe("videos", () => {
       });
     });
 
-    const results = await t.query(api.videos.queries.list, {
+    const results = await asOrg.query(api.videos.queries.list, {
       orgId: "org_1",
     });
     expect(results).toHaveLength(1);
@@ -47,6 +49,7 @@ describe("videos", () => {
 
   it("CRUD — create, getById, update, softDelete", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const id = await asOrg1.mutation(api.videos.mutations.create, {
@@ -56,7 +59,7 @@ describe("videos", () => {
     });
     expect(id).toBeTruthy();
 
-    const fetched = await t.query(api.videos.queries.getById, { id });
+    const fetched = await asOrg.query(api.videos.queries.getById, { id });
     expect(fetched).not.toBeNull();
     expect(fetched!.title).toBe("Promo Video");
     expect(fetched!.url).toBe("https://example.com/video.mp4");
@@ -65,15 +68,15 @@ describe("videos", () => {
       id,
       title: "Updated Promo",
     });
-    const updated = await t.query(api.videos.queries.getById, { id });
+    const updated = await asOrg.query(api.videos.queries.getById, { id });
     expect(updated!.title).toBe("Updated Promo");
     expect(updated!.description).toBe("Our best promo");
 
     await asOrg1.mutation(api.videos.mutations.softDelete, { id });
-    const deleted = await t.query(api.videos.queries.getById, { id });
+    const deleted = await asOrg.query(api.videos.queries.getById, { id });
     expect(deleted!.isDeleted).toBe(true);
 
-    const listed = await t.query(api.videos.queries.list, {
+    const listed = await asOrg.query(api.videos.queries.list, {
       orgId: "org_1",
     });
     expect(listed).toHaveLength(0);

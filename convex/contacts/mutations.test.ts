@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("contacts.mutations.create", () => {
   it("inserts a contact with searchText built from fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -24,7 +24,7 @@ describe("contacts.mutations.create", () => {
   });
 
   it("builds searchText without email when email is omitted", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -42,7 +42,7 @@ describe("contacts.mutations.create", () => {
   // now means the same company name as well as the same email. The case that
   // drove the change is in two-locations.test.ts.
   it("rejects the same company entered twice on one email", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -64,7 +64,7 @@ describe("contacts.mutations.create", () => {
   });
 
   it("allows a different company on the same email", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -86,9 +86,11 @@ describe("contacts.mutations.create", () => {
   });
 
   it("allows the same email in different orgs", async () => {
-    const t = convexTest(schema, modules);
+    const base = convexTest(schema, modules);
+    const asA = base.withIdentity({ subject: "user_a", orgId: "org_a" });
+    const asB = base.withIdentity({ subject: "user_b", orgId: "org_b" });
 
-    await t.mutation(api.contacts.mutations.create, {
+    await asA.mutation(api.contacts.mutations.create, {
       orgId: "org_a",
       company: "Org A Co",
       firstName: "A",
@@ -96,7 +98,7 @@ describe("contacts.mutations.create", () => {
       email: "shared@test.com",
     });
 
-    const id = await t.mutation(api.contacts.mutations.create, {
+    const id = await asB.mutation(api.contacts.mutations.create, {
       orgId: "org_b",
       company: "Org B Co",
       firstName: "B",
@@ -108,7 +110,7 @@ describe("contacts.mutations.create", () => {
   });
 
   it("allows creating a contact without an email (no uniqueness check)", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const id1 = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1", company: "A", firstName: "A", lastName: "A",
@@ -124,7 +126,7 @@ describe("contacts.mutations.create", () => {
 
 describe("contacts.mutations.update", () => {
   it("patches fields and rebuilds searchText", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -148,7 +150,7 @@ describe("contacts.mutations.update", () => {
   });
 
   it("rejects an update that duplicates another contact outright", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -179,7 +181,7 @@ describe("contacts.mutations.update", () => {
 
   it("allows an update onto a shared email under a different company", async () => {
     // Moving a second location onto the owner's billing email.
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -210,7 +212,7 @@ describe("contacts.mutations.update", () => {
   });
 
   it("allows keeping the same email on the same contact", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -234,7 +236,7 @@ describe("contacts.mutations.update", () => {
   });
 
   it("throws when contact does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const fakeId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("contacts", {
@@ -257,7 +259,7 @@ describe("contacts.mutations.update", () => {
 
 describe("contacts.mutations.softDelete", () => {
   it("marks the contact as deleted and clears email", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",
@@ -275,7 +277,7 @@ describe("contacts.mutations.softDelete", () => {
   });
 
   it("soft-deleted contact no longer appears in list queries", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const contactId = await t.mutation(api.contacts.mutations.create, {
       orgId: "org_1",

@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { requireOrg, isOwnDoc } from "../auth.helpers";
 
 export const getSlotAvailability = query({
   args: {
@@ -13,6 +14,7 @@ export const getSlotAvailability = query({
     isDayType: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     type OccupantInfo = {
       adPurchaseId: string;
       contactId: string;
@@ -115,6 +117,10 @@ export const getSlotAvailability = query({
 export const listByAdPurchase = query({
   args: { adPurchaseId: v.id("adPurchases") },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.adPurchaseId)))) return [];
     return await ctx.db
       .query("adSlots")
       .withIndex("by_adPurchaseId", (q) =>

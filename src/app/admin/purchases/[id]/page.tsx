@@ -28,6 +28,7 @@ import { ScheduledPaymentsTable } from "./scheduled-payments-table";
 import { RecordPaymentSheet } from "@/components/admin/record-payment-sheet";
 import Link from "next/link";
 import { useState } from "react";
+import { AdStatusBadge } from "@/components/admin/ad-status";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -246,6 +247,16 @@ export default function PurchaseDetailPage() {
                 <DetailField label="Company" value={detail.contact?.company} />
                 <DetailField label="Email" value={detail.contact?.email} />
                 <DetailField label="Phone" value={detail.contact?.phone} />
+                {/* Read-only here: the status belongs to the business, and
+                    the place to change it is the business's own page. */}
+                <div className="grid grid-cols-3 items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Ad status
+                  </span>
+                  <span className="col-span-2">
+                    <AdStatusBadge status={detail.contact?.adStatus} />
+                  </span>
+                </div>
               </CardContent>
             </Card>
 

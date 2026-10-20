@@ -7,6 +7,7 @@ import { modules } from "../test.setup";
 describe("communities.queries.list", () => {
   it("tenant isolation — org_a cannot see org_b communities", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_a" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("communities", {
@@ -18,7 +19,7 @@ describe("communities.queries.list", () => {
       });
     });
 
-    const results = await t.query(api.communities.queries.list, {
+    const results = await asOrg.query(api.communities.queries.list, {
       orgId: "org_a",
     });
     expect(results).toHaveLength(0);
@@ -26,6 +27,7 @@ describe("communities.queries.list", () => {
 
   it("soft-deleted communities are excluded from list", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("communities", {
@@ -44,7 +46,7 @@ describe("communities.queries.list", () => {
       });
     });
 
-    const results = await t.query(api.communities.queries.list, {
+    const results = await asOrg.query(api.communities.queries.list, {
       orgId: "org_1",
     });
     expect(results).toHaveLength(1);
@@ -55,6 +57,7 @@ describe("communities.queries.list", () => {
 describe("communities.queries.getBySlug", () => {
   it("resolves community by orgId and slug", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("communities", {
@@ -66,7 +69,7 @@ describe("communities.queries.getBySlug", () => {
       });
     });
 
-    const result = await t.query(api.communities.queries.getBySlug, {
+    const result = await asOrg.query(api.communities.queries.getBySlug, {
       orgId: "org_1",
       slug: "springfield",
     });
@@ -76,8 +79,9 @@ describe("communities.queries.getBySlug", () => {
 
   it("returns null for non-existent slug", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
-    const result = await t.query(api.communities.queries.getBySlug, {
+    const result = await asOrg.query(api.communities.queries.getBySlug, {
       orgId: "org_1",
       slug: "does-not-exist",
     });
@@ -86,6 +90,7 @@ describe("communities.queries.getBySlug", () => {
 
   it("excludes soft-deleted communities from slug lookup", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("communities", {
@@ -97,7 +102,7 @@ describe("communities.queries.getBySlug", () => {
       });
     });
 
-    const result = await t.query(api.communities.queries.getBySlug, {
+    const result = await asOrg.query(api.communities.queries.getBySlug, {
       orgId: "org_1",
       slug: "gone-town",
     });
@@ -119,6 +124,7 @@ describe("communities.mutations.create", () => {
 
   it("creates a community with valid identity", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const id = await asOrg1.mutation(api.communities.mutations.create, {
@@ -129,7 +135,7 @@ describe("communities.mutations.create", () => {
     });
     expect(id).toBeTruthy();
 
-    const doc = await t.query(api.communities.queries.getById, { id });
+    const doc = await asOrg.query(api.communities.queries.getById, { id });
     expect(doc).not.toBeNull();
     expect(doc!.name).toBe("Springfield");
     expect(doc!.slug).toBe("springfield");
@@ -160,6 +166,7 @@ describe("communities.mutations.create", () => {
 describe("communities.mutations.update", () => {
   it("patches provided fields only", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const id = await asOrg1.mutation(api.communities.mutations.create, {
@@ -173,7 +180,7 @@ describe("communities.mutations.update", () => {
       name: "New Name",
     });
 
-    const doc = await t.query(api.communities.queries.getById, { id });
+    const doc = await asOrg.query(api.communities.queries.getById, { id });
     expect(doc!.name).toBe("New Name");
     expect(doc!.slug).toBe("old-name");
   });
@@ -201,6 +208,7 @@ describe("communities.mutations.update", () => {
 describe("communities.mutations.softDelete", () => {
   it("marks community as isDeleted=true", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const id = await asOrg1.mutation(api.communities.mutations.create, {
@@ -211,12 +219,13 @@ describe("communities.mutations.softDelete", () => {
 
     await asOrg1.mutation(api.communities.mutations.softDelete, { id });
 
-    const doc = await t.query(api.communities.queries.getById, { id });
+    const doc = await asOrg.query(api.communities.queries.getById, { id });
     expect(doc!.isDeleted).toBe(true);
   });
 
   it("soft-deleted community is excluded from list query", async () => {
     const t = convexTest(schema, modules);
+    const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
     const asOrg1 = t.withIdentity({ orgId: "org_1" });
 
     const id = await asOrg1.mutation(api.communities.mutations.create, {
@@ -225,14 +234,14 @@ describe("communities.mutations.softDelete", () => {
       calendarEditionIds: [],
     });
 
-    const before = await t.query(api.communities.queries.list, {
+    const before = await asOrg.query(api.communities.queries.list, {
       orgId: "org_1",
     });
     expect(before).toHaveLength(1);
 
     await asOrg1.mutation(api.communities.mutations.softDelete, { id });
 
-    const after = await t.query(api.communities.queries.list, {
+    const after = await asOrg.query(api.communities.queries.list, {
       orgId: "org_1",
     });
     expect(after).toHaveLength(0);

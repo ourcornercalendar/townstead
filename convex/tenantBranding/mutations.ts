@@ -1,5 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireAuth, requireOrg } from "../auth.helpers";
 
 const RESERVED_SLUGS = new Set([
   "admin", "portal", "auth", "api", "_next", "sitemap", "robots",
@@ -25,6 +26,7 @@ export const upsert = mutation({
     footerText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const existing = await ctx.db
       .query("tenantBranding")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
@@ -75,6 +77,7 @@ export const upsert = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAuth(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

@@ -1,9 +1,14 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { isOwnDoc } from "../auth.helpers";
 
 export const listByPurchase = query({
   args: { purchaseId: v.id("purchases") },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.purchaseId)))) return [];
     const payments = await ctx.db
       .query("payments")
       .withIndex("by_purchaseId", (q) => q.eq("purchaseId", args.purchaseId))
@@ -26,6 +31,10 @@ export const listByPurchase = query({
 export const listByContact = query({
   args: { contactId: v.id("contacts") },
   handler: async (ctx, args) => {
+    // Looking a record up by id alone crosses org boundaries: the id is the
+    // only thing asked for, so any id works. Anything not ours reads as
+    // empty, which is what a missing record already looked like.
+    if (!(await isOwnDoc(ctx, await ctx.db.get(args.contactId)))) return [];
     const purchases = await ctx.db
       .query("purchases")
       .withIndex("by_contactId", (q) => q.eq("contactId", args.contactId))

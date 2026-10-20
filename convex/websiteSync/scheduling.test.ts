@@ -51,7 +51,7 @@ describe("scheduling the push to the website", () => {
     afterEach(() => vi.useRealTimers());
 
     it("queues a push when an advertiser is added", async () => {
-      const t = convexTest(schema, modules);
+      const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
       await t.mutation(api.contacts.mutations.create, contact);
 
       const jobs = await t.run(async (ctx) => ctx.db.system.query(QUEUE).collect());
@@ -61,7 +61,7 @@ describe("scheduling the push to the website", () => {
     });
 
     it("queues a push when an advertiser is corrected", async () => {
-      const t = convexTest(schema, modules);
+      const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
       const id = await t.mutation(api.contacts.mutations.create, contact);
       await t.mutation(api.contacts.mutations.update, {
         id,
@@ -78,7 +78,7 @@ describe("scheduling the push to the website", () => {
     });
 
     it("queues a push when an advertiser is deleted, so the website hides it", async () => {
-      const t = convexTest(schema, modules);
+      const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
       const id = await t.mutation(api.contacts.mutations.create, contact);
       await t.mutation(api.contacts.mutations.softDelete, { id });
 
@@ -93,7 +93,7 @@ describe("scheduling the push to the website", () => {
     });
 
     it("queues nothing at all", async () => {
-      const t = convexTest(schema, modules);
+      const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
       await t.mutation(api.contacts.mutations.create, contact);
       expect(await t.run(async (ctx) => ctx.db.system.query(QUEUE).collect())).toHaveLength(0);
     });
@@ -101,7 +101,7 @@ describe("scheduling the push to the website", () => {
     it("still saves the advertiser", async () => {
       // The point of scheduling rather than awaiting: the ad sales system
       // works whether or not the website is reachable or even configured.
-      const t = convexTest(schema, modules);
+      const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
       const id = await t.mutation(api.contacts.mutations.create, contact);
       const saved = await t.run(async (ctx) => ctx.db.get(id));
       expect(saved!.company).toBe("Pinot's Palette");

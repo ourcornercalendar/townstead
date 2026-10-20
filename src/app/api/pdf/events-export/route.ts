@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid year" }, { status: 400 });
   }
 
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
   const editionIdParam = searchParams.get("calendarEditionId");
 
   let calendarEditionId: Id<"calendarEditions"> | null = null;

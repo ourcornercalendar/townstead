@@ -6,7 +6,7 @@ import { modules } from "../test.setup";
 
 describe("advertisements.mutations.create", () => {
   it("creates an advertisement with the given fields", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1",
@@ -25,7 +25,7 @@ describe("advertisements.mutations.create", () => {
   });
 
   it("creates a day-type advertisement", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1",
@@ -40,7 +40,7 @@ describe("advertisements.mutations.create", () => {
   });
 
   it("allows creating ads with the same name in the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const id1 = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1", name: "Banner", isDayType: false, slotsPerMonth: 1,
@@ -55,7 +55,7 @@ describe("advertisements.mutations.create", () => {
 
 describe("advertisements.mutations.softDelete", () => {
   it("marks the advertisement as deleted", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1", name: "To Delete", isDayType: false, slotsPerMonth: 1,
@@ -68,7 +68,7 @@ describe("advertisements.mutations.softDelete", () => {
   });
 
   it("soft-deleted ad no longer appears in list queries", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const adId = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1", name: "Will Delete", isDayType: false, slotsPerMonth: 1,
@@ -81,7 +81,7 @@ describe("advertisements.mutations.softDelete", () => {
   });
 
   it("only affects the targeted ad, not others in the same org", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const keepId = await t.mutation(api.advertisements.mutations.create, {
       orgId: "org_1", name: "Keep This", isDayType: false, slotsPerMonth: 1,

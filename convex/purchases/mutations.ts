@@ -8,6 +8,7 @@ import {
   computeScheduleBase,
   generateScheduledPayments,
 } from "../billing/helpers";
+import { requireOrg, requireOwnDoc } from "../auth.helpers";
 
 async function invalidateStatsCache(
   ctx: MutationCtx,
@@ -87,6 +88,7 @@ export const create = mutation({
     paymentTerms: paymentTermsValidator,
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const invoiceNumber = await generateInvoiceNumber(
       ctx.db,
       args.year,
@@ -204,6 +206,9 @@ export const update = mutation({
     paymentTerms: v.optional(paymentTermsValidator),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const purchase = await ctx.db.get(args.id);
     if (!purchase) throw new Error("Purchase not found");
 
@@ -379,6 +384,9 @@ export const toggleArtworkSubmitted = mutation({
     hasSubmittedArtwork: v.boolean(),
   },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const purchase = await ctx.db.get(args.id);
     if (!purchase) throw new Error("Purchase not found");
     await ctx.db.patch(args.id, {
@@ -390,6 +398,9 @@ export const toggleArtworkSubmitted = mutation({
 export const softDelete = mutation({
   args: { id: v.id("purchases") },
   handler: async (ctx, args) => {
+    // Loading by id alone crosses org boundaries: the id is the only thing
+    // asked for, so any id works. This refuses anything not ours.
+    await requireOwnDoc(ctx, await ctx.db.get(args.id));
     const purchase = await ctx.db.get(args.id);
     if (!purchase) throw new Error("Purchase not found");
 
@@ -464,6 +475,7 @@ export const regenerateSchedule = mutation({
     orgId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const purchase = await ctx.db.get(args.purchaseId);
     if (!purchase || purchase.orgId !== args.orgId) {
       throw new Error("Purchase not found");

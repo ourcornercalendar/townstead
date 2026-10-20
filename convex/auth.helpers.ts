@@ -14,12 +14,28 @@ export interface OrgAuth {
 export async function requireAuth(ctx: AuthCtx): Promise<OrgAuth> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
-  const rawO = (identity as Record<string, unknown>).o;
-  const orgId =
-    (identity.orgId as string | undefined) ??
-    (typeof rawO === "string" ? rawO : (rawO as { id?: string } | undefined)?.id);
+  const orgId = identityOrgId(identity);
   if (!orgId) throw new Error("No organization selected");
   return { userId: identity.subject, orgId };
+}
+
+/**
+ * The organisation on a sign-in token, if there is one.
+ *
+ * Clerk spells this differently depending on the JWT template -- `orgId`, or an
+ * `o` claim that is either the id itself or an object holding it -- so every
+ * reader goes through here rather than picking one shape and being wrong on
+ * somebody else's deployment.
+ */
+export function identityOrgId(
+  identity: Record<string, unknown> | null
+): string | undefined {
+  if (!identity) return undefined;
+  const rawO = identity.o;
+  return (
+    (identity.orgId as string | undefined) ??
+    (typeof rawO === "string" ? rawO : (rawO as { id?: string } | undefined)?.id)
+  );
 }
 
 /**
@@ -32,6 +48,66 @@ export async function requirePublicAuth(
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
   return { userId: identity.subject };
+}
+
+/**
+ * Authenticates, and confirms the caller actually belongs to the organisation
+ * they are asking about.
+ *
+ * Nearly every admin query and mutation takes `orgId` as an argument. Without
+ * this, that argument is simply believed: a Convex `query` or `mutation` is a
+ * public endpoint, and the deployment URL ships in the client bundle, so
+ * anything that does not check the caller's identity can be called by anyone
+ * who opens the site and passes whatever orgId they like.
+ */
+export async function requireOrg(
+  ctx: AuthCtx,
+  orgId: string
+): Promise<OrgAuth> {
+  const auth = await requireAuth(ctx);
+  if (auth.orgId !== orgId) {
+    throw new Error("Not authorized for this organization");
+  }
+  return auth;
+}
+
+/**
+ * Does this document belong to the caller's organisation?
+ *
+ * For queries. A query that used to return null for a missing id must keep
+ * doing so -- throwing instead would turn "not found" into an error state in
+ * every screen that checks for null. So this reports, and the caller decides
+ * what empty looks like.
+ */
+export async function isOwnDoc(
+  ctx: AuthCtx,
+  doc: { orgId?: string } | null
+): Promise<boolean> {
+  const { orgId } = await requireAuth(ctx);
+  if (!doc) return false;
+  return doc.orgId === undefined || doc.orgId === orgId;
+}
+
+/**
+ * Authenticates and confirms a document belongs to the caller's organisation.
+ *
+ * For the handlers that take only a document id. Looking a record up by id
+ * alone crosses org boundaries by default -- the id is the only thing asked
+ * for, so any id works.
+ */
+export async function requireOwnDoc<T extends { orgId?: string }>(
+  ctx: AuthCtx,
+  doc: T | null
+): Promise<T | null> {
+  const { orgId } = await requireAuth(ctx);
+  // A document that exists but belongs to someone else is refused. A document
+  // that does not exist is passed straight through, so the handler's own
+  // "Contact not found" (or whatever it says) still fires with its own
+  // wording -- this guard is here to add a check, not to take one over.
+  if (doc && doc.orgId !== undefined && doc.orgId !== orgId) {
+    throw new Error("Not found");
+  }
+  return doc;
 }
 
 /**
@@ -97,6 +173,42 @@ export async function requirePermission(
   if (!allowed) {
     throw new Error(`Permission denied: ${permission}`);
   }
+}
+
+/**
+ * For a permission held by whoever runs the organisation, checked on a caller
+ * already proven to be a member of it.
+ *
+ * `checkPermission` looks only at the `orgPermissions` table, and nothing ever
+ * writes a row there for the person who owns the organisation -- membership
+ * lives in Clerk. So an owner with no row fell through to the *public* `user`
+ * defaults, which do not include approving anything. The effect was that the
+ * Approve button on a submitted event failed for the one person it was for.
+ *
+ * Only call this after `requireAuth`, with that call's own userId and orgId:
+ * the reasoning here is "this caller is a member of this organisation", and it
+ * is not true of a userId that arrived any other way.
+ */
+export async function requireOrgMemberPermission(
+  ctx: AuthCtx,
+  userId: string,
+  orgId: string,
+  permission: string
+): Promise<void> {
+  const grant = await ctx.db
+    .query("orgPermissions")
+    .withIndex("by_userId_and_orgId", (q) =>
+      q.eq("userId", userId).eq("orgId", orgId)
+    )
+    .first();
+
+  // A member with nothing narrowing them is an administrator of it.
+  if (!grant) return;
+  if (grant.role === "admin" && grant.isActive) return;
+
+  // A member who *has* been given a limited grant is held to it, so somebody
+  // invited to add events cannot approve their own submissions.
+  await requirePermission(ctx, userId, orgId, permission);
 }
 
 /**
@@ -200,4 +312,78 @@ export async function requireCreateAction(
     throw new Error(`Permission denied: ${domain}:create`);
   }
   return { needsApproval: result.needsApproval };
+}
+
+export interface WorkspaceAuth extends OrgAuth {
+  /**
+   * True when the caller belongs to the Clerk organisation -- which in this
+   * app means they run it. False when they are here on a team grant, which is
+   * the narrow case: signed in, given one job, and not a member of anything.
+   */
+  isOrgMember: boolean;
+}
+
+/**
+ * Lets someone work inside one organisation without being a member of it.
+ *
+ * Every other admin function requires Clerk organisation membership, and that
+ * is deliberate -- it is the line that keeps an invited helper away from
+ * contacts, purchases and billing without relying on a screen to hide them.
+ * But a helper invited to keep the calendar has to reach the events tables
+ * themselves, so this is the one door built to open both ways:
+ *
+ * - an organisation member passes, still held to a limited grant if they have
+ *   one, so this can never be a way around one;
+ * - a non-member passes only with an active, non-advertiser grant for exactly
+ *   this organisation.
+ *
+ * It answers "may this person work here at all". What they may then *do* is a
+ * separate check the caller makes, because the answer differs per function.
+ */
+export async function requireWorkspace(
+  ctx: AuthCtx,
+  orgId: string
+): Promise<WorkspaceAuth> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Not authenticated");
+  const userId = identity.subject;
+
+  if (identityOrgId(identity) === orgId) {
+    return { userId, orgId, isOrgMember: true };
+  }
+
+  const grant = await ctx.db
+    .query("orgPermissions")
+    .withIndex("by_userId_and_orgId", (q) =>
+      q.eq("userId", userId).eq("orgId", orgId)
+    )
+    .first();
+
+  // "contact" grants belong to advertisers and open the billing portal, not
+  // the calendar. They are not a way in here.
+  if (!grant || !grant.isActive || grant.role === "contact") {
+    throw new Error("Not authorized for this organization");
+  }
+
+  return { userId, orgId, isOrgMember: false };
+}
+
+/**
+ * Like `requireWorkspace`, and then the permission a non-member needs.
+ *
+ * Members are governed by `requireOrgMemberPermission`, so a member who holds
+ * a limited grant is still held to it.
+ */
+export async function requireWorkspacePermission(
+  ctx: AuthCtx,
+  orgId: string,
+  permission: string
+): Promise<WorkspaceAuth> {
+  const auth = await requireWorkspace(ctx, orgId);
+  if (auth.isOrgMember) {
+    await requireOrgMemberPermission(ctx, auth.userId, orgId, permission);
+    return auth;
+  }
+  await requirePermission(ctx, auth.userId, orgId, permission);
+  return auth;
 }

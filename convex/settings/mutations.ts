@@ -1,5 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireOrg } from "../auth.helpers";
 
 const addressValidator = v.optional(
   v.object({
@@ -24,6 +25,7 @@ export const upsertOrgSettings = mutation({
     nsfFeeAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const { orgId, ...fields } = args;
 
     const existing = await ctx.db

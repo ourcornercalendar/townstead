@@ -52,7 +52,7 @@ async function seedPurchaseWithSchedule(ctx: { db: any }) {
 
 describe("recordPayment", () => {
   it("inserts payment and creates allocations filling earliest-due first", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       return await seedPurchaseWithSchedule(ctx);
@@ -94,7 +94,7 @@ describe("recordPayment", () => {
   });
 
   it("creates no allocations when no scheduled payments exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -133,7 +133,7 @@ describe("recordPayment", () => {
 
 describe("updatePayment", () => {
   it("deletes old allocations, patches payment, and creates new allocations", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       return await seedPurchaseWithSchedule(ctx);
@@ -181,7 +181,7 @@ describe("updatePayment", () => {
   });
 
   it("throws when payment does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const paymentId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -221,7 +221,7 @@ describe("updatePayment", () => {
 
 describe("deletePayment", () => {
   it("deletes allocations then deletes the payment", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const purchaseId = await t.run(async (ctx) => {
       return await seedPurchaseWithSchedule(ctx);
@@ -259,7 +259,7 @@ describe("deletePayment", () => {
   });
 
   it("throws when payment does not exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const paymentId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { adStatusValidator } from "./contacts/adStatus";
 
 export default defineSchema({
   calendarEditions: defineTable({
@@ -17,6 +18,10 @@ export default defineSchema({
     slotsPerMonth: v.number(),
     orgId: v.string(),
     isDeleted: v.optional(v.boolean()),
+    // The running order Joyce arranges by hand. Optional because every
+    // advertisement that already exists predates it: absent means "fall back
+    // to the default order", which is worked out in advertisements/order.ts.
+    displayOrder: v.optional(v.number()),
   }).index("by_orgId", ["orgId"]),
 
   adPricing: defineTable({
@@ -88,6 +93,11 @@ export default defineSchema({
     showOnWebsite: v.optional(v.boolean()),
     lat: v.optional(v.number()),
     lng: v.optional(v.number()),
+    // Where this business's advertisement has got to -- see
+    // contacts/adStatus.ts. Absent means nobody has set one yet, which is
+    // shown as "Not set" rather than guessed at.
+    adStatus: v.optional(adStatusValidator),
+    adStatusUpdatedAt: v.optional(v.number()),
     orgId: v.string(),
     isDeleted: v.optional(v.boolean()),
     updatedAt: v.optional(v.number()),
@@ -451,11 +461,41 @@ export default defineSchema({
     permissions: v.array(v.string()),
     contactId: v.optional(v.id("contacts")),
     isActive: v.boolean(),
+    // Set when the grant came from a team invite. A grant otherwise knows only
+    // a Clerk user id, which is unreadable in a list; these are what the Team
+    // screen shows so an admin can tell one row from another.
+    invitedEmail: v.optional(v.string()),
+    invitedName: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_orgId", ["orgId"])
     .index("by_userId_and_orgId", ["userId", "orgId"])
     .index("by_contactId", ["contactId"]),
+
+  // Invitations to staff — someone who works on the calendar but is not an
+  // advertiser. Deliberately separate from portalInvites, which is bound to a
+  // contact record and always creates a "contact" grant.
+  teamInvites: defineTable({
+    orgId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    token: v.string(),
+    permissions: v.array(v.string()),
+    expiresAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("redeemed"),
+      v.literal("revoked"),
+      v.literal("expired")
+    ),
+    invitedByUserId: v.string(),
+    redeemedByUserId: v.optional(v.string()),
+    redeemedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_orgId", ["orgId"])
+    .index("by_email_and_orgId", ["email", "orgId"]),
 
   orgPermissionDefaults: defineTable({
     orgId: v.string(),

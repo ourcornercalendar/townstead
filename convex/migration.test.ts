@@ -8,6 +8,7 @@ import type { Id } from "./_generated/dataModel";
 describe("reallocateAllPayments", () => {
   it("reallocates a misallocated payment to the earliest-due installment", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { purchaseId, sp1Id, sp2Id, paymentId } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -68,7 +69,7 @@ describe("reallocateAllPayments", () => {
       return { purchaseId, sp1Id, sp2Id, paymentId };
     });
 
-    const result = await t.mutation(api.migration.reallocateAllPayments, {
+    const result = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 
@@ -105,6 +106,7 @@ describe("reallocateAllPayments", () => {
 
   it("processes multiple payments in date order", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { sp1Id, sp2Id } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -164,7 +166,7 @@ describe("reallocateAllPayments", () => {
       return { sp1Id, sp2Id };
     });
 
-    const result = await t.mutation(api.migration.reallocateAllPayments, {
+    const result = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 
@@ -197,6 +199,7 @@ describe("reallocateAllPayments", () => {
 
   it("skips purchases with no payments", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -230,7 +233,7 @@ describe("reallocateAllPayments", () => {
       });
     });
 
-    const result = await t.mutation(api.migration.reallocateAllPayments, {
+    const result = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 
@@ -241,6 +244,7 @@ describe("reallocateAllPayments", () => {
 
   it("isolates by orgId — does not touch other org's data", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_a" });
 
     const { orgBAllocId } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -290,7 +294,7 @@ describe("reallocateAllPayments", () => {
       return { orgBAllocId };
     });
 
-    const result = await t.mutation(api.migration.reallocateAllPayments, {
+    const result = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_a",
     });
 
@@ -307,6 +311,7 @@ describe("reallocateAllPayments", () => {
 
   it("handles partial payments correctly", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const { sp1Id, sp2Id } = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -359,7 +364,7 @@ describe("reallocateAllPayments", () => {
       return { sp1Id, sp2Id };
     });
 
-    await t.mutation(api.migration.reallocateAllPayments, {
+    await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 
@@ -389,6 +394,7 @@ describe("reallocateAllPayments", () => {
 
   it("is idempotent — running twice produces the same result", async () => {
     const t = convexTest(schema, modules);
+      const asOrg = t.withIdentity({ subject: "test_user", orgId: "org_1" });
 
     await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -429,11 +435,11 @@ describe("reallocateAllPayments", () => {
       });
     });
 
-    const result1 = await t.mutation(api.migration.reallocateAllPayments, {
+    const result1 = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 
-    const result2 = await t.mutation(api.migration.reallocateAllPayments, {
+    const result2 = await asOrg.mutation(api.migration.reallocateAllPayments, {
       orgId: "org_1",
     });
 

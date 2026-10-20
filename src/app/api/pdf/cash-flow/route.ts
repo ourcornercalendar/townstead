@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   const year = parseInt(yearStr, 10);
   const paymentYear = paymentYearStr ? parseInt(paymentYearStr, 10) : undefined;
-  const convex = getConvexClient();
+  const convex = await getConvexClient();
 
   const reportPromise = convex.query(api.billing.queries.getCashFlowReport, {
     orgId,

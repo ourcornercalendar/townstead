@@ -9,7 +9,7 @@ afterEach(() => vi.useRealTimers());
 
 describe("scheduledPayments", () => {
   it("listByPurchase returns scheduled payments for a given purchase", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -60,7 +60,7 @@ describe("scheduledPayments", () => {
   });
 
   it("listByPurchase enriches with paidAmount from allocations", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const purchaseId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {
@@ -113,7 +113,7 @@ describe("scheduledPayments", () => {
   });
 
   it("waiveLateFee toggles lateFeeWaived on a scheduled payment", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "org_1" });
 
     const spId = await t.run(async (ctx) => {
       const contactId = await ctx.db.insert("contacts", {

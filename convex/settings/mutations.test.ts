@@ -8,7 +8,7 @@ const ORG = "test_org";
 
 describe("upsertOrgSettings", () => {
   it("creates settings when none exist", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     const id = await t.mutation(api.settings.mutations.upsertOrgSettings, {
       orgId: ORG,
@@ -28,7 +28,7 @@ describe("upsertOrgSettings", () => {
   });
 
   it("updates existing settings", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.mutation(api.settings.mutations.upsertOrgSettings, {
       orgId: ORG,
@@ -51,7 +51,7 @@ describe("upsertOrgSettings", () => {
   });
 
   it("stores address and remit-to address", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "test_user", orgId: "test_org" });
 
     await t.mutation(api.settings.mutations.upsertOrgSettings, {
       orgId: ORG,
@@ -82,22 +82,24 @@ describe("upsertOrgSettings", () => {
   });
 
   it("tenant isolation — upsert for org A does not affect org B", async () => {
-    const t = convexTest(schema, modules);
+    const base = convexTest(schema, modules);
+    const asA = base.withIdentity({ subject: "user_a", orgId: "org_a" });
+    const asB = base.withIdentity({ subject: "user_b", orgId: "org_b" });
 
-    await t.mutation(api.settings.mutations.upsertOrgSettings, {
+    await asA.mutation(api.settings.mutations.upsertOrgSettings, {
       orgId: "org_a",
       businessName: "Org A",
     });
 
-    await t.mutation(api.settings.mutations.upsertOrgSettings, {
+    await asB.mutation(api.settings.mutations.upsertOrgSettings, {
       orgId: "org_b",
       businessName: "Org B",
     });
 
-    const resultA = await t.query(api.settings.queries.getOrgSettings, {
+    const resultA = await asA.query(api.settings.queries.getOrgSettings, {
       orgId: "org_a",
     });
-    const resultB = await t.query(api.settings.queries.getOrgSettings, {
+    const resultB = await asB.query(api.settings.queries.getOrgSettings, {
       orgId: "org_b",
     });
 

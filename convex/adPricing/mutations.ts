@@ -1,5 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { requireOrg } from "../auth.helpers";
 
 const monthlyPricesValidator = v.object({
   jan: v.number(),
@@ -25,6 +26,7 @@ export const upsert = mutation({
     monthlyPrices: monthlyPricesValidator,
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const existing = await ctx.db
       .query("adPricing")
       .withIndex("by_advertisementId_and_calendarEditionId_and_year", (q) =>

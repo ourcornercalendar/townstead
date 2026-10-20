@@ -6,6 +6,8 @@ import {
   computeAmountPaid,
   isScheduledPaymentLate,
 } from "../billing/helpers";
+import { requireOrg } from "../auth.helpers";
+import type { AdStatus } from "../contacts/adStatus";
 
 async function enrichSlotsForEdition(
   ctx: QueryCtx,
@@ -20,6 +22,7 @@ async function enrichSlotsForEdition(
     contactId: Id<"contacts">;
     contactName: string;
     company: string;
+    adStatus?: AdStatus;
     advertisementName: string;
     advertisementId: Id<"advertisements">;
     isDayType: boolean;
@@ -88,6 +91,7 @@ async function enrichSlotsForEdition(
         ? `${contact.firstName} ${contact.lastName}`
         : "Unknown",
       company: contact?.company ?? "",
+      adStatus: contact?.adStatus,
       advertisementName: ad?.name ?? "Unknown",
       advertisementId: adPurchase.advertisementId,
       isDayType: ad?.isDayType ?? false,
@@ -106,6 +110,7 @@ export const getPrintInventoryData = query({
     advertisementIds: v.optional(v.array(v.id("advertisements"))),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const advertisementIdFilter =
       args.advertisementIds === undefined
         ? null
@@ -132,7 +137,10 @@ export const getPrintInventoryData = query({
       });
     }
 
-    const contactMap = new Map<string, { id: string; company: string }>();
+    const contactMap = new Map<
+      string,
+      { id: string; company: string; adStatus?: AdStatus }
+    >();
     for (const e of editions) {
       for (const slot of e.slots) {
         const cid = slot.contactId.toString();
@@ -140,6 +148,7 @@ export const getPrintInventoryData = query({
           contactMap.set(cid, {
             id: cid,
             company: slot.company || slot.contactName,
+            adStatus: slot.adStatus,
           });
         }
       }
@@ -159,6 +168,7 @@ export const getDashboardSlots = query({
     year: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const enrichedSlots = await enrichSlotsForEdition(
       ctx,
       args.calendarEditionId,
@@ -166,13 +176,17 @@ export const getDashboardSlots = query({
       null
     );
 
-    const contactMap = new Map<string, { id: string; company: string }>();
+    const contactMap = new Map<
+      string,
+      { id: string; company: string; adStatus?: AdStatus }
+    >();
     for (const slot of enrichedSlots) {
       const cid = slot.contactId.toString();
       if (!contactMap.has(cid)) {
         contactMap.set(cid, {
           id: cid,
           company: slot.company || slot.contactName,
+          adStatus: slot.adStatus,
         });
       }
     }
@@ -192,6 +206,7 @@ export const getDashboardStats = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOrg(ctx, args.orgId);
     const cached = await ctx.db
       .query("dashboardStatsCache")
       .withIndex("by_org_edition_year", (q) =>
