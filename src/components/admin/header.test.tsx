@@ -8,6 +8,9 @@ vi.mock("@clerk/nextjs", () => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin",
+  // The sidebar's jump box navigates with the router, so this mock needs it
+  // too — the header renders AdminSidebarMobile.
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
 vi.mock("next/link", () => ({
