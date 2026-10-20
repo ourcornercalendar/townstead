@@ -7,6 +7,7 @@ import {
   type ColumnFiltersState,
   type RowSelectionState,
   type OnChangeFn,
+  type FilterFn,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -53,6 +54,18 @@ type DataTableBaseProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
+  /**
+   * Search across several fields instead of one column.
+   *
+   * `searchKey` filters a single column, which is all most of these tables
+   * need. When a row is findable by more than one thing — an event by its
+   * name, its category or where it is — give this instead: it returns the
+   * text for a row and the box matches against the lot.
+   *
+   * Opt-in deliberately. Passing neither leaves a table exactly as it was,
+   * so adding this changed nothing anywhere else.
+   */
+  searchText?: (row: TData) => string;
   searchPlaceholder?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -101,6 +114,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
+  searchText,
   searchPlaceholder = "Search...",
   emptyTitle = "No results",
   emptyDescription = "No items found.",
@@ -122,6 +136,7 @@ export function DataTable<TData, TValue>({
     enableRowSelection && "getRowId" in rest ? rest.getRowId : undefined;
   const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters ?? []);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [internalRowSelection, setInternalRowSelection] =
     useState<RowSelectionState>({});
 
@@ -161,6 +176,16 @@ export function DataTable<TData, TValue>({
     [enableRowSelection, selectColumn, columns]
   );
 
+  const globalFilterFn = useMemo<FilterFn<TData>>(
+    () => (row, _columnId, value) => {
+      if (!searchText) return true;
+      const needle = String(value ?? "").toLowerCase();
+      if (!needle) return true;
+      return searchText(row.original).toLowerCase().includes(needle);
+    },
+    [searchText]
+  );
+
   const table = useReactTable({
     data,
     columns: tableColumns,
@@ -178,10 +203,15 @@ export function DataTable<TData, TValue>({
       });
     },
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn,
     enableRowSelection,
     onRowSelectionChange: setRowSelection,
     getRowId: enableRowSelection ? getRowId : undefined,
-    state: { sorting, columnFilters, rowSelection },
+    // globalFilter is always in state. With no `searchText` there is no box
+    // to type into, so it stays empty and TanStack skips global filtering —
+    // which is why adding this changed nothing for the other tables.
+    state: { sorting, columnFilters, rowSelection, globalFilter },
     ...(noPagination && {
       initialState: { pagination: { pageSize: 999999 } },
     }),
@@ -193,7 +223,7 @@ export function DataTable<TData, TValue>({
     (col) => col.columnDef.meta?.filterOptions?.length
   );
 
-  const isFiltered = columnFilters.length > 0;
+  const isFiltered = columnFilters.length > 0 || globalFilter.length > 0;
 
   const filteredRows = table.getFilteredRowModel().rows.length;
   const selectedRows = enableRowSelection
@@ -208,9 +238,17 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        {(searchKey || filterableColumns.length > 0) && (
+        {(searchKey || searchText || filterableColumns.length > 0) && (
           <div className="flex flex-wrap items-center gap-2">
-            {searchKey && (
+            {searchText && (
+              <Input
+                placeholder={searchPlaceholder}
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="h-8 max-w-sm"
+              />
+            )}
+            {searchKey && !searchText && (
               <Input
                 placeholder={searchPlaceholder}
                 value={
@@ -240,7 +278,10 @@ export function DataTable<TData, TValue>({
                 variant="ghost"
                 size="sm"
                 className="h-8"
-                onClick={() => table.resetColumnFilters()}
+                onClick={() => {
+                  table.resetColumnFilters();
+                  setGlobalFilter("");
+                }}
               >
                 Reset
                 <X className="ml-1 size-3.5" />

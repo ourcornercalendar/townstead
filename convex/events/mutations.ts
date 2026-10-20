@@ -114,6 +114,21 @@ export const create = mutation({
       v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
     ),
     isScusd: v.optional(v.boolean()),
+    // The category this event is filed under — "CSD", "School District" and
+    // so on, which the owner creates herself in Admin -> Categories.
+    //
+    // `categoryId` has been in the events schema all along, but no mutation
+    // ever accepted it and the admin form never offered it, so no event could
+    // ever have one. That is also why the category buttons on the public
+    // events page matched nothing: they filtered on a field that was always
+    // empty.
+    //
+    // Nullable, not merely optional, and the two mean different things:
+    //   absent  -> leave whatever is there alone
+    //   null    -> clear it ("No category" in the form)
+    //   an id   -> file it under that category
+    // See the note in `update`, where the distinction actually bites.
+    categoryId: v.optional(v.union(v.id("categories"), v.null())),
     imageFileId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -131,9 +146,13 @@ export const create = mutation({
       }
       isApproved = !action.needsApproval;
     }
-
+    // null is the form's way of saying "no category"; the stored shape for
+    // that is simply an absent field.
+    const { categoryId, ...rest } = args;
     return await ctx.db.insert("events", {
-      ...args,
+      ...rest,
+      categoryId: categoryId ?? undefined,
+
       isApproved,
       submittedBy: userId,
       isDeleted: false,
@@ -193,13 +212,32 @@ export const update = mutation({
       v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
     ),
     isScusd: v.optional(v.boolean()),
+    // Nullable on purpose, and this is where it matters.
+    //
+    // Convex does remove a field when you patch it to undefined — but an
+    // argument you pass as `undefined` never arrives at all, so it is spread
+    // out of existence and the patch leaves the old value in place. Declaring
+    // it `v.optional(v.id(...))` and sending undefined therefore makes "No
+    // category" quietly do nothing: the form closes, the toast says saved,
+    // and the event is still filed where it was.
+    //
+    // A test caught exactly that. null is the explicit "clear it" signal, and
+    // the handler below turns it into the undefined that patch understands.
+    categoryId: v.optional(v.union(v.id("categories"), v.null())),
     imageFileId: v.optional(v.id("_storage")),
     isApproved: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await requireEventAccess(ctx, await ctx.db.get(args.id), "update");
-    const { id, ...fields } = args;
-    await ctx.db.patch(id, fields);
+    const { id, categoryId, ...fields } = args;
+    await ctx.db.patch(id, {
+      ...fields,
+      // Absent stays absent (leave it alone); null becomes undefined, which
+      // is what actually removes the field.
+      ...(categoryId !== undefined
+        ? { categoryId: categoryId ?? undefined }
+        : {}),
+    });
   },
 });
 

@@ -137,11 +137,14 @@ function ActionsCell({
 export function columns({
   onEdit,
   calendarEditions,
+  categories = [],
 }: {
   onEdit: (event: Event) => void;
   calendarEditions: Doc<"calendarEditions">[];
+  categories?: Doc<"categories">[];
 }): ColumnDef<Event>[] {
   const editionMap = new Map(calendarEditions.map((c) => [c._id, c.name]));
+  const categoryMap = new Map(categories.map((c) => [c._id, c.name]));
 
   return [
     {
@@ -149,6 +152,39 @@ export function columns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
+    },
+    {
+      // The owner's own filing scheme. "__none__" rather than "" so that
+      // "No category" is a thing you can actively filter FOR — finding the
+      // events that still need filing is most of the point of having this
+      // column at all.
+      id: "category",
+      accessorFn: (row) =>
+        (row.categoryId && categoryMap.get(row.categoryId)) || "__none__",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Category" />
+      ),
+      cell: ({ row }) => {
+        const name =
+          row.original.categoryId && categoryMap.get(row.original.categoryId);
+        if (!name) {
+          return (
+            <span className="text-xs text-muted-foreground">No category</span>
+          );
+        }
+        return (
+          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-500/20 dark:text-purple-300">
+            {name}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
+      meta: {
+        filterOptions: [
+          ...categories.map((c) => ({ label: c.name, value: c.name })),
+          { label: "No category", value: "__none__" },
+        ],
+      },
     },
     {
       accessorKey: "date",

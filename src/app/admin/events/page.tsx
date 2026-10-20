@@ -32,10 +32,19 @@ export default function EventsPage() {
     api.calendarEditions.queries.list,
     isReady ? { orgId: orgId! } : "skip"
   );
+  const categories = useQuery(
+    api.categories.queries.list,
+    isReady ? { orgId: orgId!, type: "event" as const } : "skip"
+  );
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "pending">("all");
+
+  const categoryNames = useMemo(
+    () => new Map((categories ?? []).map((c) => [c._id, c.name])),
+    [categories]
+  );
 
   const filteredEvents = useMemo(() => {
     if (!events) return [];
@@ -120,10 +129,23 @@ export default function EventsPage() {
           columns={columns({
             onEdit: handleEdit,
             calendarEditions: calendarEditions ?? [],
+            categories: categories ?? [],
           })}
           data={filteredEvents}
-          searchKey="name"
-          searchPlaceholder="Search events..."
+          // Was searchKey="name", which only ever looked at the name. An
+          // event is as likely to be remembered by where it is or what it is
+          // filed under, so the box now matches any of them.
+          searchText={(e) =>
+            [
+              e.name,
+              e.description,
+              e.location,
+              e.categoryId ? categoryNames.get(e.categoryId) : "",
+            ]
+              .filter(Boolean)
+              .join(" ")
+          }
+          searchPlaceholder="Search events by name, category or place..."
           emptyTitle="No events"
           emptyDescription="Get started by adding your first event."
         />

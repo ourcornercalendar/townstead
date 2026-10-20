@@ -49,6 +49,11 @@ export default function EventsPage({
     type: "event",
   });
 
+  const categoryNames = useMemo(
+    () => new Map((categories ?? []).map((c) => [c._id, c.name])),
+    [categories]
+  );
+
   const filteredEvents = useMemo(() => {
     if (!events) return [];
     let result = events.filter((e) =>
@@ -68,15 +73,29 @@ export default function EventsPage({
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      // Includes the category, so typing "school district" finds everything
+      // filed under it without first hunting for the right button.
       result = result.filter(
         (e) =>
           e.name.toLowerCase().includes(q) ||
-          e.location?.toLowerCase().includes(q),
+          e.location?.toLowerCase().includes(q) ||
+          e.description?.toLowerCase().includes(q) ||
+          (e.categoryId
+            ? (categoryNames.get(e.categoryId) ?? "").toLowerCase().includes(q)
+            : false),
       );
     }
 
     return result;
-  }, [calendarMonth, events, monthEnd, monthStart, selectedDate, searchQuery]);
+  }, [
+    calendarMonth,
+    events,
+    monthEnd,
+    monthStart,
+    selectedDate,
+    searchQuery,
+    categoryNames,
+  ]);
 
   const calendarEvents = useMemo(
     () =>
@@ -130,7 +149,7 @@ export default function EventsPage({
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface/60" />
             <input
               type="text"
-              placeholder="Search events…"
+              placeholder="Search by name, place or category…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 w-full rounded-lg border-0 bg-surface-container-low pl-9 pr-3 text-sm text-on-surface outline-none ring-0 transition-colors placeholder:text-on-surface/50 focus:ring-2 focus:ring-primary/30"

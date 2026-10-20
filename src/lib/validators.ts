@@ -164,6 +164,11 @@ export const eventSchema = z.object({
     .optional(),
   monthlyMonthSelector: z.enum(["EVERY", "EVEN", "ODD"]).optional(),
   calendarEditionIds: z.array(z.string()).optional(),
+  // Optional on purpose. Categories are the owner's own filing scheme, added
+  // to a calendar that already has years of events in it, so an event without
+  // one has to stay saveable — otherwise every edit to an old event becomes a
+  // forced filing decision.
+  categoryId: z.string().optional(),
 }).superRefine((value, ctx) => {
   const scheduleType = value.scheduleType ?? "SINGLE_DAY";
   if (!value.startsOn) {
