@@ -45,28 +45,66 @@ import {
 
 type EventLevel = "create" | "submit";
 
-const OPTIONAL_EXTRAS = [
+/**
+ * The switches, in the two groups the owner asked for.
+ *
+ * `danger` marks the one that takes her out of the loop: a helper who can
+ * approve publishes straight to the printed calendar without her seeing it.
+ * It is off by default and set apart on screen.
+ */
+const SWITCH_GROUPS = [
   {
-    id: PERMISSIONS.EVENTS_UPDATE_OWN,
-    label: "Edit events they added",
-    hint: "Their own only.",
+    group: "Events",
+    items: [
+      {
+        id: PERMISSIONS.EVENTS_UPDATE_ANY,
+        label: "Edit events",
+        hint: "Any event on the calendar, including ones you entered.",
+      },
+      {
+        id: PERMISSIONS.EVENTS_DELETE_ANY,
+        label: "Delete events",
+        hint: "Any event on the calendar. There is no undo.",
+      },
+      {
+        id: PERMISSIONS.EVENTS_APPROVE,
+        label: "Approve events",
+        hint: "Clears the approval queue without you. Anything they approve goes straight to the calendar.",
+        danger: true,
+      },
+    ],
   },
   {
-    id: PERMISSIONS.EVENTS_DELETE_OWN,
-    label: "Delete events they added",
-    hint: "Their own only.",
-  },
-  {
-    id: PERMISSIONS.EVENTS_MANAGE_ALL,
-    label: "Edit and delete anyone's events",
-    hint: "The whole calendar, including events you entered. For someone genuinely sharing the work.",
+    group: "Categories",
+    items: [
+      {
+        id: PERMISSIONS.CATEGORIES_CREATE,
+        label: "Add categories",
+        hint: "Create new ones, such as CSD or School District.",
+      },
+      {
+        id: PERMISSIONS.CATEGORIES_UPDATE,
+        label: "Edit categories",
+        hint: "Rename an existing category.",
+      },
+      {
+        id: PERMISSIONS.CATEGORIES_DELETE,
+        label: "Delete categories",
+        hint: "Removes the category. Events filed under it keep everything else.",
+      },
+    ],
   },
 ] as const;
+
+const ALL_SWITCHES = SWITCH_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
 function permissionsFor(level: EventLevel, extras: string[]): string[] {
   const base =
     level === "create" ? PERMISSIONS.EVENTS_CREATE : PERMISSIONS.EVENTS_SUBMIT;
-  return [base, ...extras];
+  // Editing your own is implied by being able to add at all — someone who
+  // can put an event in should be able to fix their own typo without the
+  // owner having to think about it.
+  return [base, PERMISSIONS.EVENTS_UPDATE_OWN, ...extras];
 }
 
 function describe(permissions: string[]): string {
@@ -76,17 +114,211 @@ function describe(permissions: string[]): string {
   } else if (permissions.includes(PERMISSIONS.EVENTS_SUBMIT)) {
     parts.push("Adds events — you approve them first");
   }
-  if (permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)) {
-    parts.push("edits and deletes any event");
-  } else {
-    if (permissions.includes(PERMISSIONS.EVENTS_UPDATE_OWN)) {
-      parts.push("edits their own");
-    }
-    if (permissions.includes(PERMISSIONS.EVENTS_DELETE_OWN)) {
-      parts.push("deletes their own");
-    }
+
+  // `manage_all` is the older permission meaning both; a grant made before
+  // the switches were split still has it and must still read correctly.
+  const editAny =
+    permissions.includes(PERMISSIONS.EVENTS_UPDATE_ANY) ||
+    permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL);
+  const deleteAny =
+    permissions.includes(PERMISSIONS.EVENTS_DELETE_ANY) ||
+    permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL);
+
+  if (editAny && deleteAny) parts.push("edits and deletes any event");
+  else if (editAny) parts.push("edits any event");
+  else if (deleteAny) parts.push("deletes any event");
+  else {
+    if (permissions.includes(PERMISSIONS.EVENTS_UPDATE_OWN)) parts.push("edits their own");
+    if (permissions.includes(PERMISSIONS.EVENTS_DELETE_OWN)) parts.push("deletes their own");
   }
-  return parts.join(", ") || "No access";
+
+  if (permissions.includes(PERMISSIONS.EVENTS_APPROVE)) parts.push("approves events");
+
+  const cats = [
+    permissions.includes(PERMISSIONS.CATEGORIES_CREATE) && "add",
+    permissions.includes(PERMISSIONS.CATEGORIES_UPDATE) && "edit",
+    permissions.includes(PERMISSIONS.CATEGORIES_DELETE) && "delete",
+  ].filter(Boolean);
+  if (cats.length) parts.push(`categories: ${cats.join(", ")}`);
+
+  return parts.join(" · ") || "No access";
+}
+
+/**
+ * The switch block. One definition, used both when inviting somebody and when
+ * changing what an existing helper can do — before this, the permissions
+ * could only be set at invite time and never changed afterwards. The mutation
+ * to change them existed and nothing on any screen called it.
+ */
+function PermissionSwitches({
+  value,
+  onToggle,
+  idPrefix,
+  disabled,
+}: {
+  value: readonly string[];
+  onToggle: (id: string) => void;
+  idPrefix: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      {SWITCH_GROUPS.map((group) => (
+        <div key={group.group} className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {group.group}
+          </p>
+          {group.items.map((item) => {
+            const danger = "danger" in item && item.danger;
+            return (
+              <div
+                key={item.id}
+                className={
+                  danger
+                    ? "flex items-center justify-between gap-4 rounded-md border border-amber-500/50 bg-amber-500/5 p-3"
+                    : "flex items-center justify-between gap-4 rounded-md border p-3"
+                }
+              >
+                <span className="text-sm">
+                  {item.label}
+                  <span className="block text-xs text-muted-foreground">
+                    {item.hint}
+                  </span>
+                </span>
+                <Switch
+                  id={`${idPrefix}-${item.id}`}
+                  checked={value.includes(item.id)}
+                  disabled={disabled}
+                  onCheckedChange={() => onToggle(item.id)}
+                  aria-label={item.label}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One helper in the list, with their switches behind a Change button. */
+function MemberRow({
+  member,
+  onSave,
+  onSetActive,
+  onRemove,
+}: {
+  member: {
+    _id: string;
+    permissions: string[];
+    isActive: boolean;
+    invitedName?: string | null;
+    invitedEmail?: string | null;
+    userId: string;
+  };
+  onSave: (id: string, permissions: string[]) => Promise<void>;
+  onSetActive: (id: string, isActive: boolean) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<string[]>(member.permissions);
+  const [saving, setSaving] = useState(false);
+
+  // Only the switchable ones are compared: the invite also carries
+  // events:create/submit and update_own, which this panel does not show and
+  // must not drop when saving.
+  const dirty =
+    ALL_SWITCHES.some((id) => draft.includes(id) !== member.permissions.includes(id));
+
+  const toggle = (id: string) =>
+    setDraft((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+
+  return (
+    <div className="rounded-md border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">
+            {member.invitedName ??
+              member.invitedEmail ??
+              "Account " + member.userId.slice(-6)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {member.invitedName && member.invitedEmail
+              ? `${member.invitedEmail} — `
+              : ""}
+            {describe(member.permissions)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant={member.isActive ? "default" : "secondary"}>
+            {member.isActive ? "Active" : "Off"}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setDraft(member.permissions);
+              setOpen((o) => !o);
+            }}
+          >
+            {open ? "Close" : "Change"}
+          </Button>
+          <Switch
+            checked={member.isActive}
+            onCheckedChange={(checked) => onSetActive(member._id, checked)}
+            aria-label="Access on or off"
+          />
+          <Button variant="ghost" size="sm" onClick={() => onRemove(member._id)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-4 border-t pt-4">
+          <PermissionSwitches
+            value={draft}
+            onToggle={toggle}
+            idPrefix={member._id}
+            disabled={saving}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={!dirty || saving}
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  await onSave(member._id, draft);
+                  setOpen(false);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={saving}
+              onClick={() => setDraft(member.permissions)}
+            >
+              Reset
+            </Button>
+            {!member.isActive && (
+              <span className="text-xs text-muted-foreground">
+                Their access is turned off — these take effect when you turn it
+                back on.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function TeamPage() {
@@ -97,6 +329,12 @@ export default function TeamPage() {
   const revokeInvite = useMutation(api.teamInvites.mutations.revoke);
   const setActive = useMutation(api.teamInvites.mutations.setMemberActive);
   const removeMember = useMutation(api.teamInvites.mutations.removeMember);
+  // This mutation has existed since the Team screen was built and nothing
+  // ever called it, so what a helper could do was fixed at invite time
+  // forever. It is wired up now.
+  const updatePermissions = useMutation(
+    api.teamInvites.mutations.updateMemberPermissions
+  );
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -238,28 +476,16 @@ export default function TeamPage() {
             </RadioGroup>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Label>Also allow</Label>
-            {OPTIONAL_EXTRAS.map((extra) => (
-              <div
-                key={extra.id}
-                className="flex items-center justify-between gap-4 rounded-md border p-3"
-              >
-                <span className="text-sm">
-                  {extra.label}
-                  <span className="block text-xs text-muted-foreground">
-                    {extra.hint}
-                  </span>
-                </span>
-                <Switch
-                  checked={extras.includes(extra.id)}
-                  onCheckedChange={() => toggleExtra(extra.id)}
-                />
-              </div>
-            ))}
+            <PermissionSwitches
+              value={extras}
+              onToggle={toggleExtra}
+              idPrefix="invite"
+            />
             <p className="text-xs text-muted-foreground">
-              Approving other people&apos;s submissions stays with
-              administrators either way.
+              They can always edit the events they added themselves, so a typo
+              of their own is never your job to fix.
             </p>
           </div>
 
@@ -389,66 +615,42 @@ export default function TeamPage() {
           ) : (
             <div className="space-y-2">
               {members.map((member) => (
-                <div
+                <MemberRow
                   key={member._id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {member.invitedName ??
-                        member.invitedEmail ??
-                        "Account " + member.userId.slice(-6)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {member.invitedName && member.invitedEmail
-                        ? `${member.invitedEmail} — `
-                        : ""}
-                      {describe(member.permissions)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant={member.isActive ? "default" : "secondary"}>
-                      {member.isActive ? "Active" : "Off"}
-                    </Badge>
-                    <Switch
-                      checked={member.isActive}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          await setActive({
-                            id: member._id as Id<"orgPermissions">,
-                            isActive: checked,
-                          });
-                          toast.success(
-                            checked ? "Access turned on" : "Access turned off"
-                          );
-                        } catch (err) {
-                          toast.error(
-                            err instanceof Error ? err.message : "Failed"
-                          );
-                        }
-                      }}
-                      aria-label="Access on or off"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await removeMember({
-                            id: member._id as Id<"orgPermissions">,
-                          });
-                          toast.success("Removed");
-                        } catch (err) {
-                          toast.error(
-                            err instanceof Error ? err.message : "Failed"
-                          );
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
+                  member={member}
+                  onSave={async (id, permissions) => {
+                    try {
+                      await updatePermissions({
+                        id: id as Id<"orgPermissions">,
+                        permissions,
+                      });
+                      toast.success("Permissions updated");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    }
+                  }}
+                  onSetActive={async (id, isActive) => {
+                    try {
+                      await setActive({
+                        id: id as Id<"orgPermissions">,
+                        isActive,
+                      });
+                      toast.success(
+                        isActive ? "Access turned on" : "Access turned off"
+                      );
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    }
+                  }}
+                  onRemove={async (id) => {
+                    try {
+                      await removeMember({ id: id as Id<"orgPermissions"> });
+                      toast.success("Removed");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    }
+                  }}
+                />
               ))}
             </div>
           )}

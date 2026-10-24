@@ -222,9 +222,34 @@ describe("the door opens onto events and nothing else", () => {
         isDeleted: false,
       })
     );
+    // Still refused, and the refusal now names the switch that is off
+    // instead of claiming there is no organisation. Approving is reachable
+    // for a helper only when the owner turns that one switch on; this helper
+    // has every other events allowance and still cannot.
     await expect(
       helper.mutation(api.events.mutations.approve, { id })
-    ).rejects.toThrow(/No organization selected/);
+    ).rejects.toThrow(/Permission denied: events:approve/);
+  });
+
+  it("approves only once the owner turns that switch on", async () => {
+    // The other side of the same coin -- otherwise the test above would
+    // still pass if approving were refused for everyone forever.
+    const { base, helper } = await withHelper([
+      "events:create",
+      "events:approve",
+    ]);
+    const id = await base.run(async (ctx) =>
+      ctx.db.insert("events", {
+        name: "Someone else's",
+        date: Date.now(),
+        orgId: ORG,
+        isApproved: false,
+        isDeleted: false,
+      })
+    );
+    await helper.mutation(api.events.mutations.approve, { id });
+    const event = await base.run(async (ctx) => ctx.db.get(id));
+    expect(event!.isApproved).toBe(true);
   });
 
   it("cannot reach another organisation's events", async () => {

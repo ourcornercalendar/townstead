@@ -70,14 +70,18 @@ describe("creating an invite", () => {
     ).rejects.toThrow(/Not a permission that can be granted here/);
   });
 
-  it("refuses approving other people's events", async () => {
+  it("can hand out approving, now that the owner asked for the switch", async () => {
+    // Refused outright until the owner asked for an approve allowance on the
+    // Team screen. It is the one permission that takes her out of the loop --
+    // what the helper publishes goes to print without her seeing it -- so it
+    // is assignable, off by default, and kept apart from the rest on that
+    // screen. Granting it stays an explicit act.
     const t = asAdmin();
-    await expect(
-      t.mutation(api.teamInvites.mutations.create, {
-        email: "mad@example.com",
-        permissions: ["events:approve"],
-      })
-    ).rejects.toThrow(/Not a permission that can be granted here/);
+    const token = await t.mutation(api.teamInvites.mutations.create, {
+      email: "mad@example.com",
+      permissions: ["events:submit", "events:approve"],
+    });
+    expect(token).toHaveLength(32);
   });
 
   it("refuses a second pending invite for the same address", async () => {
@@ -469,7 +473,7 @@ describe("approving what she submits", () => {
     const { asMadalynn, id } = await submittedEvent();
     await expect(
       asMadalynn.mutation(api.events.mutations.approve, { id })
-    ).rejects.toThrow(/No organization selected/);
+    ).rejects.toThrow(/Permission denied: events:approve/);
   });
 
   it("a restricted member of the org cannot approve either", async () => {

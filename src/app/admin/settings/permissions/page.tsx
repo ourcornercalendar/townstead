@@ -46,12 +46,33 @@ const PERMISSION_META: Record<Permission, PermissionInfo> = {
     description: "Remove events they previously submitted",
   },
   [PERMISSIONS.EVENTS_MANAGE_ALL]: {
+    label: "Edit and Delete Any Event",
+    description:
+      "The older combined permission. Still means both; kept so grants made before the two below existed keep working.",
+  },
+  [PERMISSIONS.EVENTS_UPDATE_ANY]: {
     label: "Edit Any Event",
-    description: "Edit or delete any event in the calendar, not only their own",
+    description: "Edit any event in the calendar, not only their own",
+  },
+  [PERMISSIONS.EVENTS_DELETE_ANY]: {
+    label: "Delete Any Event",
+    description: "Delete any event in the calendar, not only their own",
   },
   [PERMISSIONS.EVENTS_APPROVE]: {
     label: "Approve Events",
     description: "Review and approve/reject submitted events",
+  },
+  [PERMISSIONS.CATEGORIES_CREATE]: {
+    label: "Add Categories",
+    description: "Create new categories such as CSD or School District",
+  },
+  [PERMISSIONS.CATEGORIES_UPDATE]: {
+    label: "Rename Categories",
+    description: "Rename an existing category",
+  },
+  [PERMISSIONS.CATEGORIES_DELETE]: {
+    label: "Delete Categories",
+    description: "Remove a category. Events filed under it keep their other details.",
   },
   [PERMISSIONS.BLOG_SUBMIT]: {
     label: "Submit Posts",

@@ -6,7 +6,7 @@ import {
   requireWorkspace,
   resolveEffectivePermissions,
 } from "../auth.helpers";
-import { PERMISSIONS } from "../permissions";
+import { canSeeAllEvents } from "../permissions";
 
 export const list = query({
   args: { orgId: v.string() },
@@ -29,7 +29,12 @@ export const list = query({
       userId,
       args.orgId
     );
-    if (permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)) return events;
+    // Anyone who can edit, delete or approve other people's events has to be
+    // able to see them. A permission to change something invisible is no
+    // permission at all — and before the edit/delete switches were split out
+    // this only accepted `manage_all`, so a helper given "edit any event"
+    // would have had nothing to edit.
+    if (canSeeAllEvents(permissions)) return events;
     return events.filter((e) => e.submittedBy === userId);
   },
 });

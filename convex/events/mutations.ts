@@ -5,11 +5,16 @@ import {
   requireOwnDoc,
   requireOrgMemberPermission,
   requireWorkspace,
+  requireWorkspacePermission,
   checkCreateAction,
   resolveEffectivePermissions,
 } from "../auth.helpers";
 import { Doc } from "../_generated/dataModel";
-import { PERMISSIONS } from "../permissions";
+import {
+  PERMISSIONS,
+  canEditAnyEvent,
+  canDeleteAnyEvent,
+} from "../permissions";
 
 
 /**
@@ -50,7 +55,14 @@ async function requireEventAccess(
     userId,
     event.orgId
   );
-  if (permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)) return;
+
+  // Anyone else's event: needs the "any" permission for this action, or the
+  // older `manage_all` which means both.
+  const any =
+    action === "update"
+      ? canEditAnyEvent(permissions)
+      : canDeleteAnyEvent(permissions);
+  if (any) return;
 
   const own = event.submittedBy === userId;
   const needed =
@@ -59,7 +71,18 @@ async function requireEventAccess(
       : PERMISSIONS.EVENTS_DELETE_OWN;
   if (own && permissions.includes(needed)) return;
 
-  throw new Error(`Permission denied: ${PERMISSIONS.EVENTS_MANAGE_ALL}`);
+  // Name the permission that was actually missing. "Permission denied:
+  // events:manage_all" was the message whatever the cause, which told
+  // whoever read the logs nothing about which switch to turn on.
+  throw new Error(
+    `Permission denied: ${
+      own
+        ? needed
+        : action === "update"
+          ? PERMISSIONS.EVENTS_UPDATE_ANY
+          : PERMISSIONS.EVENTS_DELETE_ANY
+    }`
+  );
 }
 
 export const create = mutation({
@@ -241,14 +264,45 @@ export const update = mutation({
   },
 });
 
+/**
+ * Who may approve or reject one particular event.
+ *
+ * `requireWorkspacePermission` rather than `requireAuth`: approving used to be
+ * organisation-members-only, so the permission existed but could never be
+ * handed to a helper. A member with no grant is still treated as running the
+ * organisation, and one holding a limited grant is still held to it.
+ *
+ * The event has to be read before the check, because the check needs its
+ * orgId -- and that is the trap. Reporting the refusal verbatim would tell a
+ * caller from another organisation that this id exists, which is exactly what
+ * the old code's flat "Not found" withheld. So a refusal to stand in the
+ * workspace at all is reported as "Not found"; a caller who does belong there
+ * but lacks the switch still gets the permission name, which is what tells
+ * the owner which toggle to turn on.
+ */
+async function requireApproval(
+  ctx: MutationCtx,
+  orgId: string
+): Promise<void> {
+  try {
+    await requireWorkspacePermission(ctx, orgId, PERMISSIONS.EVENTS_APPROVE);
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "Not authorized for this organization"
+    ) {
+      throw new Error("Not found");
+    }
+    throw err;
+  }
+}
+
 export const approve = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    const { userId, orgId } = await requireAuth(ctx);
-    await requireOrgMemberPermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
-
     const event = await ctx.db.get(args.id);
-    if (!event || event.orgId !== orgId) throw new Error("Not found");
+    if (!event) throw new Error("Not found");
+    await requireApproval(ctx, event.orgId);
 
     await ctx.db.patch(args.id, { isApproved: true });
   },
@@ -260,11 +314,10 @@ export const reject = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId, orgId } = await requireAuth(ctx);
-    await requireOrgMemberPermission(ctx, userId, orgId, PERMISSIONS.EVENTS_APPROVE);
-
+    // See `requireApproval` above.
     const event = await ctx.db.get(args.id);
-    if (!event || event.orgId !== orgId) throw new Error("Not found");
+    if (!event) throw new Error("Not found");
+    await requireApproval(ctx, event.orgId);
 
     await ctx.db.patch(args.id, { isDeleted: true });
   },

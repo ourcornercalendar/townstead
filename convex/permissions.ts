@@ -8,7 +8,21 @@ export const PERMISSIONS = {
   // colleague genuinely sharing the calendar work rather than contributing to
   // it. Deliberately does not include approving other people's submissions.
   EVENTS_MANAGE_ALL: "events:manage_all",
+  // Edit or delete ANY event, separately. `manage_all` above is the older
+  // all-or-nothing version of the same idea and still means both, so nobody
+  // granted it before loses anything; these two exist because the owner
+  // wanted "edit" and "delete" to be switches she can throw independently.
+  EVENTS_UPDATE_ANY: "events:update_any",
+  EVENTS_DELETE_ANY: "events:delete_any",
   EVENTS_APPROVE: "events:approve",
+
+  // Categories — the owner's own filing scheme (CSD, School District, …).
+  // There were no permissions for these at all: category editing was
+  // org-members-only, so a helper could not be given it however much the
+  // owner wanted to.
+  CATEGORIES_CREATE: "categories:create",
+  CATEGORIES_UPDATE: "categories:update",
+  CATEGORIES_DELETE: "categories:delete",
 
   // Blog — tiered actions
   BLOG_SUBMIT: "blog:submit",
@@ -108,6 +122,17 @@ export const TEAM_ASSIGNABLE_PERMISSIONS: Permission[] = [
   PERMISSIONS.EVENTS_UPDATE_OWN,
   PERMISSIONS.EVENTS_DELETE_OWN,
   PERMISSIONS.EVENTS_MANAGE_ALL,
+  PERMISSIONS.EVENTS_UPDATE_ANY,
+  PERMISSIONS.EVENTS_DELETE_ANY,
+  // Approving was deliberately withheld until now: it is the one permission
+  // that takes the owner out of the loop entirely, so whatever a helper
+  // publishes goes to print without her seeing it. It is assignable at her
+  // explicit request, and the Team screen keeps it apart from the rest and
+  // off by default.
+  PERMISSIONS.EVENTS_APPROVE,
+  PERMISSIONS.CATEGORIES_CREATE,
+  PERMISSIONS.CATEGORIES_UPDATE,
+  PERMISSIONS.CATEGORIES_DELETE,
   PERMISSIONS.BLOG_SUBMIT,
   PERMISSIONS.BLOG_CREATE,
   PERMISSIONS.BLOG_UPDATE_OWN,
@@ -120,3 +145,40 @@ export const TEAM_ASSIGNABLE_PERMISSIONS: Permission[] = [
 
 export const ROLE_VALUES = ["admin", "contact", "user"] as const;
 export type Role = (typeof ROLE_VALUES)[number];
+
+
+/**
+ * Can this set of permissions change an event somebody else entered?
+ *
+ * `manage_all` is the original single permission meaning both; the two
+ * specific ones came later. Anything asking "may they touch other people's
+ * events" has to accept either, or a grant made before the split stops
+ * working.
+ */
+export function canEditAnyEvent(permissions: readonly string[]): boolean {
+  return (
+    permissions.includes(PERMISSIONS.EVENTS_UPDATE_ANY) ||
+    permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)
+  );
+}
+
+export function canDeleteAnyEvent(permissions: readonly string[]): boolean {
+  return (
+    permissions.includes(PERMISSIONS.EVENTS_DELETE_ANY) ||
+    permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL)
+  );
+}
+
+/**
+ * Whether the events list should show the whole calendar rather than only
+ * what this person entered. Anyone who can edit, delete or approve other
+ * people's events has to be able to see them first — a permission to change
+ * something invisible is no permission at all.
+ */
+export function canSeeAllEvents(permissions: readonly string[]): boolean {
+  return (
+    canEditAnyEvent(permissions) ||
+    canDeleteAnyEvent(permissions) ||
+    permissions.includes(PERMISSIONS.EVENTS_APPROVE)
+  );
+}

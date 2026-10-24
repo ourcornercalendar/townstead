@@ -1,7 +1,11 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuth, resolveEffectivePermissions } from "../auth.helpers";
-import { PERMISSIONS } from "../permissions";
+import {
+  PERMISSIONS,
+  canEditAnyEvent,
+  canDeleteAnyEvent,
+} from "../permissions";
 
 /**
  * Open on purpose: the person accepting an invite is not signed in yet, and
@@ -192,13 +196,26 @@ export const myWorkspace = query({
       orgName: settings?.businessName ?? branding?.siteName ?? "the calendar",
       // Straight onto the calendar, or into the approvals queue.
       publishesImmediately: canCreate,
-      canManageAll: permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL),
+      // canManageAll means "can act on anybody's event". It now answers to
+      // the split permissions as well as the old combined one, because the
+      // event desk uses it to decide which rows to offer buttons on.
+      canManageAll: canEditAnyEvent(permissions) || canDeleteAnyEvent(permissions),
+      canEditAny: canEditAnyEvent(permissions),
+      canDeleteAny: canDeleteAnyEvent(permissions),
       canEditOwn:
         permissions.includes(PERMISSIONS.EVENTS_UPDATE_OWN) ||
-        permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL),
+        canEditAnyEvent(permissions),
       canDeleteOwn:
         permissions.includes(PERMISSIONS.EVENTS_DELETE_OWN) ||
-        permissions.includes(PERMISSIONS.EVENTS_MANAGE_ALL),
+        canDeleteAnyEvent(permissions),
+      canApprove: permissions.includes(PERMISSIONS.EVENTS_APPROVE),
+      // Categories. A helper cannot reach /admin at all — every admin screen
+      // refuses a non-member — so without these flags and the panel on the
+      // event desk that reads them, switching a category permission on would
+      // grant a power with nowhere to use it.
+      canAddCategories: permissions.includes(PERMISSIONS.CATEGORIES_CREATE),
+      canEditCategories: permissions.includes(PERMISSIONS.CATEGORIES_UPDATE),
+      canDeleteCategories: permissions.includes(PERMISSIONS.CATEGORIES_DELETE),
       name: grant.invitedName ?? null,
     };
   },

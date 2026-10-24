@@ -7,6 +7,7 @@ import { useAuth, SignOutButton } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { EventForm } from "@/app/admin/events/event-form";
+import { CategoriesPanel } from "./categories-panel";
 import { DownloadEventsButton } from "@/app/admin/events/download-events-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,10 +135,13 @@ export default function EventDeskPage() {
   // list query already filters to that, so this is belt as well as braces --
   // but a button that appears and then fails is worse than no button.
   const mine = (event: Doc<"events">) => event.submittedBy === userId;
+  // Edit and delete are now separate permissions, so they are asked
+  // separately: someone can be allowed to fix anyone's typo without being
+  // able to remove anything.
   const canEdit = (event: Doc<"events">) =>
-    workspace.canManageAll || (workspace.canEditOwn && mine(event));
+    workspace.canEditAny || (workspace.canEditOwn && mine(event));
   const canDelete = (event: Doc<"events">) =>
-    workspace.canManageAll || (workspace.canDeleteOwn && mine(event));
+    workspace.canDeleteAny || (workspace.canDeleteOwn && mine(event));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
@@ -265,6 +269,15 @@ export default function EventDeskPage() {
           </TableBody>
         </Table>
       </div>
+
+      {orgId && (
+        <CategoriesPanel
+          orgId={orgId}
+          canAdd={workspace.canAddCategories}
+          canEdit={workspace.canEditCategories}
+          canDelete={workspace.canDeleteCategories}
+        />
+      )}
 
       {orgId && (
         <EventForm
