@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tag, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Tag, Plus, Pencil, Trash2, Check, X, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +55,18 @@ export function CategoriesPanel({
   const [editingName, setEditingName] = useState("");
   const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState("");
+
+  // A filing scheme grows. Once it is past a screenful, scrolling to find
+  // "School District" to rename it is the whole job, so the box appears --
+  // and stays out of the way while the list is short.
+  const SEARCHABLE_FROM = 8;
+  const shown = useMemo(() => {
+    const term = filter.trim().toLowerCase();
+    if (!categories) return [];
+    if (!term) return categories;
+    return categories.filter((c) => c.name.toLowerCase().includes(term));
+  }, [categories, filter]);
 
   // Nothing switched on: show nothing at all rather than an empty panel that
   // invites them to press buttons that are not there.
@@ -115,14 +127,29 @@ export function CategoriesPanel({
       </div>
 
       <div className="space-y-2 p-4">
+        {categories !== undefined && categories.length >= SEARCHABLE_FROM && (
+          <div className="relative pb-1">
+            <Search className="absolute left-3 top-[0.9rem] size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Find a category"
+              aria-label="Find a category"
+              className="h-8 pl-9"
+            />
+          </div>
+        )}
+
         {categories === undefined ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : categories.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No categories yet{canAdd ? " — add the first one below." : "."}
           </p>
+        ) : shown.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing matches that.</p>
         ) : (
-          categories.map((c) => (
+          shown.map((c) => (
             <div
               key={c._id}
               className="flex items-center justify-between gap-3 rounded-md border p-2.5"

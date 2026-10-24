@@ -8,6 +8,12 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { EventForm } from "@/app/admin/events/event-form";
 import { CategoriesPanel } from "./categories-panel";
+import {
+  ALL_CATEGORIES,
+  NO_CATEGORY,
+  categoryFilterLabel,
+  filterEvents,
+} from "./filter-events";
 import { DownloadEventsButton } from "@/app/admin/events/download-events-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +37,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { CalendarPlus, Pencil, Trash2, Search, ShieldAlert } from "lucide-react";
 
@@ -77,25 +90,35 @@ export default function EventDeskPage() {
     api.calendarEditions.queries.list,
     orgId ? { orgId } : "skip"
   );
+  // The same categories the owner sees on her own events screen. Needed here
+  // whether or not this person may change them: the search box and the filter
+  // work off category *names*, and an event only stores the id.
+  const categories = useQuery(
+    api.categories.queries.list,
+    orgId ? { orgId, type: "event" as const } : "skip"
+  );
   const softDelete = useMutation(api.events.mutations.softDelete);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [deleting, setDeleting] = useState<Doc<"events"> | null>(null);
+
+  const categoryNames = useMemo(
+    () => new Map((categories ?? []).map((c) => [c._id as string, c.name])),
+    [categories]
+  );
 
   const visible = useMemo(() => {
     if (!events) return [];
-    const term = search.trim().toLowerCase();
-    const matched = term
-      ? events.filter(
-          (e) =>
-            e.name.toLowerCase().includes(term) ||
-            (e.location ?? "").toLowerCase().includes(term)
-        )
-      : events;
+    const matched = filterEvents(events, {
+      search,
+      categoryFilter,
+      categoryNames,
+    });
     return [...matched].sort((a, b) => a.date - b.date);
-  }, [events, search]);
+  }, [events, search, categoryFilter, categoryNames]);
 
   if (!isLoaded || workspace === undefined) {
     return (
@@ -178,14 +201,56 @@ export default function EventDeskPage() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by name or place"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1 sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, category or place"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={categoryFilter}
+          // Base UI can hand back null (the item was cleared); that means
+          // "no filter" here, not "events with no category".
+          onValueChange={(v) => setCategoryFilter(v ?? ALL_CATEGORIES)}
+        >
+          <SelectTrigger
+            className="w-[190px]"
+            aria-label="Filter by category"
+            data-testid="category-filter"
+          >
+            {/* Base UI renders the VALUE, not the item's text, so the label
+                is worked out here -- otherwise the trigger shows a raw
+                Convex id once a category is picked. */}
+            <SelectValue placeholder="All categories">
+              {categoryFilterLabel(categoryNames, categoryFilter)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
+            <SelectItem value={NO_CATEGORY}>No category</SelectItem>
+            {(categories ?? []).map((c) => (
+              <SelectItem key={c._id} value={c._id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || categoryFilter !== ALL_CATEGORIES) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch("");
+              setCategoryFilter(ALL_CATEGORIES);
+            }}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       <div className="rounded-md border">
@@ -194,6 +259,7 @@ export default function EventDeskPage() {
             <TableRow>
               <TableHead>Event</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Where</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24" />
@@ -202,14 +268,14 @@ export default function EventDeskPage() {
           <TableBody>
             {events === undefined ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <Skeleton className="h-6 w-full" />
                 </TableCell>
               </TableRow>
             ) : visible.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   {search
@@ -222,6 +288,15 @@ export default function EventDeskPage() {
                 <TableRow key={event._id}>
                   <TableCell className="font-medium">{event.name}</TableCell>
                   <TableCell>{formatDate(event.date)}</TableCell>
+                  <TableCell>
+                    {event.categoryId && categoryNames.has(event.categoryId) ? (
+                      <Badge variant="secondary" className="font-normal">
+                        {categoryNames.get(event.categoryId)}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {event.location ?? "—"}
                   </TableCell>
