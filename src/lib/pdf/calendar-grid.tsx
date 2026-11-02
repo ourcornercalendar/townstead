@@ -8,7 +8,14 @@ import {
   renderToBuffer,
   Font,
 } from "@react-pdf/renderer";
-import { expandEventOccurrences } from "@/lib/events/recurrence";
+import { bySlot, inPrintOrder } from "@/lib/events/print-priority";
+// The month is laid out by a function the on-screen preview also calls, so
+// "preview" genuinely means "what will print" rather than a second opinion.
+import {
+  buildPrintMonth,
+  type CalendarDayCell,
+  type PrintedEvent,
+} from "@/lib/events/print-month";
 import React from "react";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -129,16 +136,17 @@ const styles = StyleSheet.create({
   //
   // The top band is pushed down to clear the day number, which is drawn in the
   // corner over the top of everything.
-  bandTop: {
+  slotFirst: {
     flex: 1,
     justifyContent: "flex-start",
+    // Clear of the day number in the corner.
     paddingTop: 13,
   },
-  bandMiddle: {
+  slotMiddle: {
     flex: 1,
     justifyContent: "center",
   },
-  bandBottom: {
+  slotLast: {
     flex: 1,
     justifyContent: "flex-end",
   },
@@ -205,6 +213,21 @@ const styles = StyleSheet.create({
 });
 
 /**
+ * How one slot divides the square.
+ *
+ * Each slot takes an equal share of the height; the first hugs the top, the
+ * last hugs the floor and the rest sit in the middle of their share. With
+ * five slots that puts positions 1, 3 and 5 exactly where the old TOP,
+ * MIDDLE and BOTTOM bands put their events, which is why switching to
+ * numbers changed nothing on paper until somebody used it.
+ */
+function slotStyle(index: number, total: number): PdfStyle {
+  if (index === 0) return styles.slotFirst;
+  if (index === total - 1) return styles.slotLast;
+  return styles.slotMiddle;
+}
+
+/**
  * One event as it appears on a printed square.
  *
  * The name is set in bold and the description follows in regular, because
@@ -213,69 +236,6 @@ const styles = StyleSheet.create({
  * squares that have room for two lines, and where it matters it is on the
  * website.
  */
-type PrintedEvent = {
-  name: string;
-  description?: string;
-  placement: Placement;
-  scusd: boolean;
-};
-
-type Placement = "TOP" | "MIDDLE" | "BOTTOM";
-
-const PLACEMENTS: Placement[] = ["TOP", "MIDDLE", "BOTTOM"];
-
-/** Absent means the top -- where everything printed before there was a choice. */
-function placementOf(event: Doc<"events">): Placement {
-  const p = (event as { printPlacement?: string }).printPlacement;
-  return p === "MIDDLE" || p === "BOTTOM" ? p : "TOP";
-}
-
-type CalendarDayCell = {
-  day: number | null;
-  events: PrintedEvent[];
-};
-
-/** The events for one band, in the order they were added. */
-function inBand(events: PrintedEvent[], band: Placement): PrintedEvent[] {
-  return events.filter((e) => e.placement === band);
-}
-
-function buildMonthCells(
-  year: number,
-  monthIndex: number,
-  events: Doc<"events">[]
-): { cells: CalendarDayCell[]; needsSplit: boolean } {
-  const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-
-  const eventNamesByDay = new Map<number, PrintedEvent[]>();
-  for (const event of events) {
-    const occurrences = expandEventOccurrences(event, year);
-    for (const occ of occurrences) {
-      const d = new Date(occ.date);
-      if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
-      const day = d.getDate();
-      if (!eventNamesByDay.has(day)) eventNamesByDay.set(day, []);
-      eventNamesByDay.get(day)!.push({
-        name: event.name,
-        description: event.description,
-        placement: placementOf(event),
-        scusd: (event as { isScusd?: boolean }).isScusd === true,
-      });
-    }
-  }
-
-  const cells: CalendarDayCell[] = [];
-  for (let i = 0; i < firstDayOfWeek; i++) cells.push({ day: null, events: [] });
-  for (let day = 1; day <= daysInMonth; day++) {
-    cells.push({ day, events: eventNamesByDay.get(day) ?? [] });
-  }
-  // Pad to multiple of 7
-  while (cells.length % 7 !== 0) cells.push({ day: null, events: [] });
-
-  const needsSplit = cells.length > 35;
-  return { cells, needsSplit };
-}
 
 /** What react-pdf accepts as a style, without naming its internal types. */
 type PdfStyle = NonNullable<React.ComponentProps<typeof View>["style"]>;
@@ -310,24 +270,27 @@ function DayCell({
   cell: CalendarDayCell;
   isLast: boolean;
 }) {
-  const bandStyles: Record<Placement, PdfStyle> = {
-    TOP: styles.bandTop,
-    MIDDLE: styles.bandMiddle,
-    BOTTOM: styles.bandBottom,
-  };
+  // One slot per position, slot 1 at the top. Five of them normally; more if
+  // something on this day is numbered past five.
+  const slots = bySlot(cell.events);
 
   return (
     <View style={[styles.dayCell, isLast ? styles.dayCellLast : {}]}>
       {cell.day !== null && (
         <>
           <Text style={styles.dayNumber}>{cell.day}</Text>
-          {/* All three bands are always drawn, even when empty. That is what
-              holds an event placed at the bottom actually at the bottom
-              rather than immediately under the one above it. */}
+          {/* EVERY slot is drawn, empty ones included. That is what holds an
+              event at position 5 down at the floor instead of letting it
+              float up under the one above — the pinning Joyce asked to keep
+              when the three bands became numbers. Delete the empty ones and
+              the square quietly turns into a plain list. */}
           <View style={styles.eventsList}>
-            {PLACEMENTS.map((band) => (
-              <View key={band} style={bandStyles[band]}>
-                {inBand(cell.events, band).map((event, idx) => (
+            {slots.map((inSlot, slotIndex) => (
+              <View
+                key={slotIndex}
+                style={slotStyle(slotIndex, slots.length)}
+              >
+                {inSlot.map((event, idx) => (
                   <EventLines
                     key={idx}
                     event={event}
@@ -359,7 +322,7 @@ function SplitDayCell({
   // events are listed in placement order instead, which keeps the same
   // sequence without pretending to a precision the space does not allow.
   const renderHalf = (cell: CalendarDayCell, isTop: boolean) => {
-    const ordered = PLACEMENTS.flatMap((band) => inBand(cell.events, band));
+    const ordered = inPrintOrder(cell.events);
     return (
       <View style={[styles.splitHalf, isTop ? styles.splitHalfTop : {}]}>
         {cell.day !== null && (
@@ -401,7 +364,7 @@ function MonthPage({
   editionLabel: string;
   events: Doc<"events">[];
 }) {
-  const { cells, needsSplit } = buildMonthCells(year, monthIndex, events);
+  const { cells, needsSplit } = buildPrintMonth(year, monthIndex, events);
   const completeRows = needsSplit ? 4 : 5;
   const rows: CalendarDayCell[][] = [];
   for (let r = 0; r < completeRows; r++) {

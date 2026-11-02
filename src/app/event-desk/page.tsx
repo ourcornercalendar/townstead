@@ -8,6 +8,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { EventForm } from "@/app/admin/events/event-form";
 import { CategoriesPanel } from "./categories-panel";
+import { CalendarPreview } from "@/components/shared/calendar-preview";
 import {
   ALL_CATEGORIES,
   NO_CATEGORY,
@@ -45,7 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CalendarPlus, Pencil, Trash2, Search, ShieldAlert } from "lucide-react";
+import { CalendarPlus, Pencil, Trash2, Search, ShieldAlert, Printer, List } from "lucide-react";
 
 /**
  * The events desk.
@@ -98,11 +99,24 @@ export default function EventDeskPage() {
     orgId ? { orgId, type: "event" as const } : "skip"
   );
   const softDelete = useMutation(api.events.mutations.softDelete);
+  const setPrintPriority = useMutation(api.events.mutations.setPrintPriority);
+
+  // Whoever may edit the event may move where it prints; the server checks
+  // the same permission either way. Someone who can only add their own
+  // events gets the preview to look at and no handles to drag.
+  const movePriority = async (id: string, priority: number) => {
+    try {
+      await setPrintPriority({ id: id as Doc<"events">["_id"], priority });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't move that");
+    }
+  };
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
+  const [view, setView] = useState<"list" | "print">("list");
   const [deleting, setDeleting] = useState<Doc<"events"> | null>(null);
 
   const categoryNames = useMemo(
@@ -194,6 +208,29 @@ export default function EventDeskPage() {
             a printable PDF, a month to a page, for sending to whoever sets the
             printed edition.
           */}
+          {/* The printed page, on screen. Checking a change used to mean
+              downloading the PDF, opening it, and coming back. */}
+          <div className="flex rounded-md border">
+            <Button
+              variant={view === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-r-none"
+              aria-label="Event list"
+              onClick={() => setView("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === "print" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-l-none"
+              aria-label="Preview calendar"
+              data-testid="preview-calendar-tab"
+              onClick={() => setView("print")}
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+          </div>
           <DownloadEventsButton calendarEditions={calendarEditions ?? []} />
           <SignOutButton redirectUrl="/">
             <Button variant="outline">Sign out</Button>
@@ -201,149 +238,162 @@ export default function EventDeskPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, category or place"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {view === "print" ? (
+        /* Exactly what the PDF will show: the same month builder and the
+           same slotting the printed page uses. Someone who may edit an
+           event may move it here; anyone else gets it to look at. */
+        <CalendarPreview
+          events={events ?? []}
+          canEdit={workspace.canEditAny}
+          onSetPriority={movePriority}
+        />
+      ) : (
+        <>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, category or place"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select
+            value={categoryFilter}
+            // Base UI can hand back null (the item was cleared); that means
+            // "no filter" here, not "events with no category".
+            onValueChange={(v) => setCategoryFilter(v ?? ALL_CATEGORIES)}
+          >
+            <SelectTrigger
+              className="w-[190px]"
+              aria-label="Filter by category"
+              data-testid="category-filter"
+            >
+              {/* Base UI renders the VALUE, not the item's text, so the label
+                  is worked out here -- otherwise the trigger shows a raw
+                  Convex id once a category is picked. */}
+              <SelectValue placeholder="All categories">
+                {categoryFilterLabel(categoryNames, categoryFilter)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
+              <SelectItem value={NO_CATEGORY}>No category</SelectItem>
+              {(categories ?? []).map((c) => (
+                <SelectItem key={c._id} value={c._id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(search || categoryFilter !== ALL_CATEGORIES) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setCategoryFilter(ALL_CATEGORIES);
+              }}
+            >
+              Clear
+            </Button>
+          )}
         </div>
-        <Select
-          value={categoryFilter}
-          // Base UI can hand back null (the item was cleared); that means
-          // "no filter" here, not "events with no category".
-          onValueChange={(v) => setCategoryFilter(v ?? ALL_CATEGORIES)}
-        >
-          <SelectTrigger
-            className="w-[190px]"
-            aria-label="Filter by category"
-            data-testid="category-filter"
-          >
-            {/* Base UI renders the VALUE, not the item's text, so the label
-                is worked out here -- otherwise the trigger shows a raw
-                Convex id once a category is picked. */}
-            <SelectValue placeholder="All categories">
-              {categoryFilterLabel(categoryNames, categoryFilter)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
-            <SelectItem value={NO_CATEGORY}>No category</SelectItem>
-            {(categories ?? []).map((c) => (
-              <SelectItem key={c._id} value={c._id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {(search || categoryFilter !== ALL_CATEGORIES) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearch("");
-              setCategoryFilter(ALL_CATEGORIES);
-            }}
-          >
-            Clear
-          </Button>
-        )}
-      </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Event</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Where</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {events === undefined ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6}>
-                  <Skeleton className="h-6 w-full" />
-                </TableCell>
+                <TableHead>Event</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Where</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  {search
-                    ? "Nothing matches that."
-                    : "No events yet. Add the first one."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visible.map((event) => (
-                <TableRow key={event._id}>
-                  <TableCell className="font-medium">{event.name}</TableCell>
-                  <TableCell>{formatDate(event.date)}</TableCell>
-                  <TableCell>
-                    {event.categoryId && categoryNames.has(event.categoryId) ? (
-                      <Badge variant="secondary" className="font-normal">
-                        {categoryNames.get(event.categoryId)}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {event.location ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {event.isApproved === false ? (
-                      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/20 dark:text-amber-300">
-                        Waiting for approval
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-500/20 dark:text-green-300">
-                        On the calendar
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      {canEdit(event) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Edit ${event.name}`}
-                          onClick={() => {
-                            setEditing(event);
-                            setFormOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDelete(event) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Delete ${event.name}`}
-                          onClick={() => setDeleting(event)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {events === undefined ? (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Skeleton className="h-6 w-full" />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : visible.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
+                    {search
+                      ? "Nothing matches that."
+                      : "No events yet. Add the first one."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visible.map((event) => (
+                  <TableRow key={event._id}>
+                    <TableCell className="font-medium">{event.name}</TableCell>
+                    <TableCell>{formatDate(event.date)}</TableCell>
+                    <TableCell>
+                      {event.categoryId && categoryNames.has(event.categoryId) ? (
+                        <Badge variant="secondary" className="font-normal">
+                          {categoryNames.get(event.categoryId)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {event.location ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {event.isApproved === false ? (
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/20 dark:text-amber-300">
+                          Waiting for approval
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-500/20 dark:text-green-300">
+                          On the calendar
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        {canEdit(event) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Edit ${event.name}`}
+                            onClick={() => {
+                              setEditing(event);
+                              setFormOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete(event) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${event.name}`}
+                            onClick={() => setDeleting(event)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        </>
+      )}
 
       {orgId && (
         <CategoriesPanel

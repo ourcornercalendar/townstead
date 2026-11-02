@@ -15,6 +15,7 @@ import {
   canEditAnyEvent,
   canDeleteAnyEvent,
 } from "../permissions";
+import { MIN_PRIORITY, MAX_PRIORITY } from "../printPriority";
 
 
 /**
@@ -133,6 +134,10 @@ export const create = mutation({
       v.union(v.literal("EVERY"), v.literal("EVEN"), v.literal("ODD"))
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
+    // Where in the printed square: 1 at the top, down to the floor. See
+    // lib/events/print-priority. The old three-band value is still accepted
+    // so nothing that already calls this mutation has to change at once.
+    printPriority: v.optional(v.number()),
     printPlacement: v.optional(
       v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
     ),
@@ -231,6 +236,10 @@ export const update = mutation({
       v.union(v.literal("EVERY"), v.literal("EVEN"), v.literal("ODD"))
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
+    // Where in the printed square: 1 at the top, down to the floor. See
+    // lib/events/print-priority. The old three-band value is still accepted
+    // so nothing that already calls this mutation has to change at once.
+    printPriority: v.optional(v.number()),
     printPlacement: v.optional(
       v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
     ),
@@ -296,6 +305,45 @@ async function requireApproval(
     throw err;
   }
 }
+
+/**
+ * Change only where an event sits in its printed square.
+ *
+ * Its own mutation because `update` demands a name and a date and the whole
+ * shape of an event, which is far too much to send in order to move one item
+ * from position 4 to position 2. The preview calendar renumbers events by
+ * dragging and clicking, so this gets called a great deal.
+ *
+ * Held to the same permission as any other edit: whoever may change this
+ * event may change where it prints, and nobody else.
+ */
+export const setPrintPriority = mutation({
+  args: {
+    id: v.id("events"),
+    priority: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireEventAccess(ctx, await ctx.db.get(args.id), "update");
+
+    // Clamped rather than rejected. This arrives from a number box someone
+    // is typing in, and refusing "0" with an error is worse than quietly
+    // meaning 1. The same clamp runs on the client; this is the one that
+    // counts.
+    const priority = Math.min(
+      MAX_PRIORITY,
+      Math.max(MIN_PRIORITY, Math.round(args.priority))
+    );
+    if (!Number.isFinite(priority)) throw new Error("Not a position");
+
+    await ctx.db.patch(args.id, {
+      printPriority: priority,
+      // The old band is cleared as it is replaced. Leaving it behind would
+      // mean an event carrying two answers to the same question, and the
+      // next person reading the row would have to know which one wins.
+      printPlacement: undefined,
+    });
+  },
+});
 
 export const approve = mutation({
   args: { id: v.id("events") },

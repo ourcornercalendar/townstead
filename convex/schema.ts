@@ -304,9 +304,20 @@ export default defineSchema({
     ),
     calendarEditionIds: v.optional(v.array(v.id("calendarEditions"))),
 
-    // Where in the printed calendar square this event sits. The square is
-    // divided into three bands and this picks one; absent means the top,
-    // which is where everything printed before there was a choice.
+    // Where in the printed calendar square this event sits: 1 at the top of
+    // the square, 2 under it, and so on down to the floor. A square is
+    // divided into five slots unless something on that day asks for more.
+    //
+    // A number rather than a fixed list of five, because a busy day can need
+    // a sixth and a seventh and a list would have meant saying no on exactly
+    // the days that need the most arranging. See lib/events/print-priority.
+    printPriority: v.optional(v.number()),
+
+    // The three bands this replaced. KEPT, and still read when an event has
+    // no number: TOP -> 1, MIDDLE -> 3, BOTTOM -> 5, which with five evenly
+    // spaced slots lands every existing event exactly where it prints today.
+    // Nothing had to be migrated before the change shipped, and the next
+    // calendar printed the same as the last.
     printPlacement: v.optional(
       v.union(v.literal("TOP"), v.literal("MIDDLE"), v.literal("BOTTOM"))
     ),

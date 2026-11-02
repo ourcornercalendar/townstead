@@ -23,6 +23,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  DEFAULT_PRIORITY,
+  MAX_PRIORITY,
+  MIN_PRIORITY,
+  QUICK_PRIORITIES,
+  clampPriority,
+  priorityOf,
+} from "@/lib/events/print-priority";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -85,12 +93,8 @@ export function categoryLabel(
   return match ? match.name : "No category";
 }
 
-/** The three bands a printed calendar square is divided into. */
-const PRINT_PLACEMENTS = [
-  { value: "TOP", label: "Top" },
-  { value: "MIDDLE", label: "Middle" },
-  { value: "BOTTOM", label: "Bottom" },
-] as const;
+// Positions in a printed square are numbers now, not three named bands.
+// See convex/printPriority.ts for why it is a number and not a list of five.
 
 const SCHEDULE_HELP = [
   {
@@ -199,7 +203,7 @@ export function EventForm({
       monthlyOrdinal: "FIRST",
       monthlyWeekday: "MONDAY",
       monthlyMonthSelector: "EVERY",
-      printPlacement: "TOP",
+      printPriority: DEFAULT_PRIORITY,
       isScusd: false,
       isYearly: false,
       calendarEditionIds: [],
@@ -226,7 +230,9 @@ export function EventForm({
         monthlyOrdinal: editing.monthlyOrdinal ?? "FIRST",
         monthlyWeekday: editing.monthlyWeekday ?? "MONDAY",
         monthlyMonthSelector: editing.monthlyMonthSelector ?? "EVERY",
-        printPlacement: editing.printPlacement ?? "TOP",
+        // Reads the number, falling back to the old band, so opening an
+        // event saved before this change shows where it actually prints.
+        printPriority: priorityOf(editing),
         isScusd: editing.isScusd ?? false,
         isYearly: editing.isYearly ?? false,
         calendarEditionIds: (editing.calendarEditionIds as string[]) ?? [],
@@ -245,7 +251,7 @@ export function EventForm({
         monthlyOrdinal: "FIRST",
         monthlyWeekday: "MONDAY",
         monthlyMonthSelector: "EVERY",
-        printPlacement: "TOP",
+        printPriority: DEFAULT_PRIORITY,
         isScusd: false,
         isYearly: false,
         calendarEditionIds: [],
@@ -307,7 +313,7 @@ export function EventForm({
           values.scheduleType === "DAILY_RANGE"
             ? values.endsOn ?? values.endDate
             : undefined,
-        printPlacement: values.printPlacement ?? "TOP",
+        printPriority: clampPriority(values.printPriority),
         isScusd: values.isScusd ?? false,
         isYearly:
           values.scheduleType === "MONTHLY_DAY" ||
@@ -737,36 +743,57 @@ export function EventForm({
 
                 <FormField
                   control={form.control}
-                  name="printPlacement"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Where in the square</FormLabel>
-                      <FormControl>
-                        <div className="flex gap-2">
-                          {PRINT_PLACEMENTS.map((option) => {
-                            const active = (field.value ?? "TOP") === option.value;
-                            return (
+                  name="printPriority"
+                  render={({ field }) => {
+                    const current = clampPriority(field.value);
+                    return (
+                      <FormItem>
+                        <FormLabel>Position in the square</FormLabel>
+                        <FormControl>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {QUICK_PRIORITIES.map((n) => (
                               <Button
-                                key={option.value}
+                                key={n}
                                 type="button"
-                                variant={active ? "default" : "outline"}
+                                variant={current === n ? "default" : "outline"}
                                 size="sm"
-                                aria-pressed={active}
-                                onClick={() => field.onChange(option.value)}
+                                className="w-9"
+                                aria-pressed={current === n}
+                                aria-label={`Position ${n}`}
+                                onClick={() => field.onChange(n)}
                               >
-                                {option.label}
+                                {n}
                               </Button>
-                            );
-                          })}
-                        </div>
-                      </FormControl>
-                      <p className="text-sm text-muted-foreground">
-                        Two events set to the same spot print one under the
-                        other, in the order they were added.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                            ))}
+                            {/* Five buttons and a box, not six buttons. A
+                                crowded day can need a seventh position and a
+                                fixed row of buttons would have meant saying
+                                no on exactly the days that need the most
+                                arranging. */}
+                            <Input
+                              type="number"
+                              min={MIN_PRIORITY}
+                              max={MAX_PRIORITY}
+                              value={current}
+                              aria-label="Position in the square"
+                              onChange={(e) =>
+                                field.onChange(clampPriority(e.target.value))
+                              }
+                              className="h-8 w-20"
+                            />
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">
+                          1 prints at the top of the square, 2 under it, down
+                          to the bottom. A square holds five positions; go
+                          higher than 5 on a busy day and that square makes
+                          room. Two events on the same number print one under
+                          the other, in the order they were added.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField

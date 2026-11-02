@@ -14,12 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, List, CalendarDays } from "lucide-react";
+import { Plus, List, CalendarDays, Printer } from "lucide-react";
 import { useState, useMemo } from "react";
 import { columns } from "./columns";
 import { EventForm } from "./event-form";
 import { EventCalendar } from "./event-calendar";
 import { DownloadEventsButton } from "./download-events-button";
+import { CalendarPreview } from "@/components/shared/calendar-preview";
+import { useMutation } from "convex/react";
+import { toast } from "sonner";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 
 export default function EventsPage() {
@@ -36,9 +39,21 @@ export default function EventsPage() {
     api.categories.queries.list,
     isReady ? { orgId: orgId!, type: "event" as const } : "skip"
   );
+  const setPrintPriority = useMutation(api.events.mutations.setPrintPriority);
+  const movePriority = async (id: string, priority: number) => {
+    try {
+      await setPrintPriority({
+        id: id as Doc<"events">["_id"],
+        priority,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't move that");
+    }
+  };
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "print">("list");
   const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "pending">("all");
 
   const categoryNames = useMemo(
@@ -104,9 +119,23 @@ export default function EventsPage() {
                 variant={viewMode === "calendar" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("calendar")}
-                className="rounded-l-none"
+                className="rounded-none"
+                aria-label="Month view"
               >
                 <CalendarDays className="h-4 w-4" />
+              </Button>
+              {/* The printed page, on screen. Checking the effect of a change
+                  used to mean downloading the PDF, looking, coming back and
+                  doing it again. */}
+              <Button
+                variant={viewMode === "print" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("print")}
+                className="rounded-l-none"
+                aria-label="Preview calendar"
+                data-testid="preview-calendar-tab"
+              >
+                <Printer className="h-4 w-4" />
               </Button>
             </div>
             <DownloadEventsButton
@@ -124,7 +153,13 @@ export default function EventsPage() {
           </div>
         }
       />
-      {viewMode === "list" ? (
+      {viewMode === "print" ? (
+        <CalendarPreview
+          events={events ?? []}
+          canEdit
+          onSetPriority={movePriority}
+        />
+      ) : viewMode === "list" ? (
         <DataTable
           columns={columns({
             onEdit: handleEdit,

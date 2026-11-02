@@ -125,7 +125,9 @@ export const eventSchema = z.object({
   // website still shows it.
   startTime: z.string().optional(),
   endTime: z.string().optional(),
-  printPlacement: z.enum(["TOP", "MIDDLE", "BOTTOM"]).optional(),
+  // Where in the printed square: 1 at the top, down to the floor. A number
+  // rather than three named bands; see convex/printPriority.ts.
+  printPriority: z.number().int().min(1).max(20).optional(),
   isScusd: z.boolean().optional(),
   isYearly: z.boolean().optional(),
   scheduleType: z
