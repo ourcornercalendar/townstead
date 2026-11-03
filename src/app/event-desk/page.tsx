@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CalendarPlus, Pencil, Trash2, Search, ShieldAlert, Printer, List } from "lucide-react";
+import { CalendarPlus, Pencil, Trash2, Search, ShieldAlert, Printer, List, CopyPlus } from "lucide-react";
 
 /**
  * The events desk.
@@ -114,6 +114,8 @@ export default function EventDeskPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
+  // The event being copied. Only `editing` makes Save change the original.
+  const [duplicating, setDuplicating] = useState<Doc<"events"> | null>(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [view, setView] = useState<"list" | "print">("list");
@@ -197,6 +199,7 @@ export default function EventDeskPage() {
           <Button
             onClick={() => {
               setEditing(null);
+              setDuplicating(null);
               setFormOpen(true);
             }}
           >
@@ -361,12 +364,30 @@ export default function EventDeskPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        {/* The same event again on another day. Offered to
+                            anyone who may ADD an event, because that is all
+                            it does — the original is not touched, so this
+                            needs no edit rights. */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Repeat ${event.name} on another date`}
+                          data-testid="repeat-event"
+                          onClick={() => {
+                            setEditing(null);
+                            setDuplicating(event);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <CopyPlus className="h-4 w-4" />
+                        </Button>
                         {canEdit(event) && (
                           <Button
                             variant="ghost"
                             size="icon"
                             aria-label={`Edit ${event.name}`}
                             onClick={() => {
+                              setDuplicating(null);
                               setEditing(event);
                               setFormOpen(true);
                             }}
@@ -407,8 +428,14 @@ export default function EventDeskPage() {
       {orgId && (
         <EventForm
           open={formOpen}
-          onOpenChange={setFormOpen}
+          onOpenChange={(next) => {
+            setFormOpen(next);
+            // Forget the copy when the form closes, so the next "Add event"
+            // opens blank rather than holding the last thing repeated.
+            if (!next) setDuplicating(null);
+          }}
           editing={editing}
+          duplicating={duplicating}
           calendarEditions={calendarEditions ?? []}
           orgId={orgId}
         />

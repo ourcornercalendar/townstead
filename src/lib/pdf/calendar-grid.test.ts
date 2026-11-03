@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { generateCalendarPdf } from "./calendar-grid";
 import type { Doc } from "../../../convex/_generated/dataModel";
@@ -19,6 +19,15 @@ import type { Doc } from "../../../convex/_generated/dataModel";
  *     ordered
  *   - school district dates print in red
  */
+
+/**
+ * These render real PDFs, and the FIRST one in the file also pays for
+ * @react-pdf/renderer's font registration and layout warm-up — around twelve
+ * seconds on a cold machine, against a 5s default. Whichever test happened
+ * to run first would fail intermittently, for no reason connected to what
+ * it actually checks.
+ */
+vi.setConfig({ testTimeout: 60_000 });
 
 const day = (y: number, m: number, d: number) => new Date(y, m, d).getTime();
 

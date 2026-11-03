@@ -150,6 +150,16 @@ interface EventFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: Doc<"events"> | null;
+  /**
+   * An event to copy. The form opens filled in from it, but saving creates a
+   * NEW event rather than changing the one copied — "same thing again, on a
+   * different day", which is how a lot of this calendar actually works: the
+   * same market, the same meeting, on dates that follow no pattern a
+   * repeating rule could express.
+   *
+   * Ignored when `editing` is set; you cannot edit and copy at once.
+   */
+  duplicating?: Doc<"events"> | null;
   calendarEditions: Doc<"calendarEditions">[];
   /**
    * Which organisation the event belongs to. The admin screens leave this out
@@ -164,6 +174,7 @@ export function EventForm({
   open,
   onOpenChange,
   editing,
+  duplicating = null,
   calendarEditions,
   orgId: orgIdProp,
 }: EventFormProps) {
@@ -212,33 +223,45 @@ export function EventForm({
   });
 
   const scheduleType = form.watch("scheduleType") ?? "SINGLE_DAY";
+  // The year a bare "11/3" should mean: the one already in the form, which
+  // is the one being worked on. Falling back to the system year would file
+  // next year's events a year early, quietly, every time.
+  const watchedStart = form.watch("startsOn");
+  const assumedYear = watchedStart
+    ? new Date(watchedStart).getFullYear()
+    : new Date().getFullYear();
   const requiresEndDate = scheduleType !== "SINGLE_DAY";
   const isMonthlySchedule =
     scheduleType === "MONTHLY_DAY" ||
     scheduleType === "MONTHLY_ORDINAL_WEEKDAY";
 
+  // Editing fills the form from the event being changed; copying fills it
+  // from the event being repeated. Same fields either way — the difference
+  // is only what Save does, further down.
+  const source = editing ?? duplicating;
+
   useEffect(() => {
-    if (editing) {
+    if (source) {
       form.reset({
-        name: editing.name,
-        description: editing.description ?? "",
-        date: editing.date,
-        endDate: editing.endDate,
-        scheduleType: editing.scheduleType ?? "SINGLE_DAY",
-        startsOn: editing.startsOn ?? editing.date,
-        endsOn: editing.endsOn ?? editing.endDate,
-        monthlyOrdinal: editing.monthlyOrdinal ?? "FIRST",
-        monthlyWeekday: editing.monthlyWeekday ?? "MONDAY",
-        monthlyMonthSelector: editing.monthlyMonthSelector ?? "EVERY",
+        name: source.name,
+        description: source.description ?? "",
+        date: source.date,
+        endDate: source.endDate,
+        scheduleType: source.scheduleType ?? "SINGLE_DAY",
+        startsOn: source.startsOn ?? source.date,
+        endsOn: source.endsOn ?? source.endDate,
+        monthlyOrdinal: source.monthlyOrdinal ?? "FIRST",
+        monthlyWeekday: source.monthlyWeekday ?? "MONDAY",
+        monthlyMonthSelector: source.monthlyMonthSelector ?? "EVERY",
         // Reads the number, falling back to the old band, so opening an
         // event saved before this change shows where it actually prints.
-        printPriority: priorityOf(editing),
-        isScusd: editing.isScusd ?? false,
-        isYearly: editing.isYearly ?? false,
-        calendarEditionIds: (editing.calendarEditionIds as string[]) ?? [],
-        categoryId: (editing.categoryId as string | undefined) ?? undefined,
+        printPriority: priorityOf(source),
+        isScusd: source.isScusd ?? false,
+        isYearly: source.isYearly ?? false,
+        calendarEditionIds: (source.calendarEditionIds as string[]) ?? [],
+        categoryId: (source.categoryId as string | undefined) ?? undefined,
       });
-      setImageFileId(editing.imageFileId ?? undefined);
+      setImageFileId(source.imageFileId ?? undefined);
     } else {
       form.reset({
         name: "",
@@ -259,7 +282,7 @@ export function EventForm({
       });
       setImageFileId(undefined);
     }
-  }, [editing, form]);
+  }, [source, form]);
 
   const handleImageUpload = useCallback(
     async (file: File) => {
@@ -337,7 +360,9 @@ export function EventForm({
       } else {
         await create({ orgId, ...payload });
       }
-      toast.success("Event saved");
+      toast.success(
+        editing ? "Event saved" : duplicating ? "Event repeated" : "Event saved"
+      );
       onOpenChange(false);
       form.reset();
     } catch {
@@ -354,12 +379,19 @@ export function EventForm({
         className="sm:max-w-2xl overflow-y-auto border-l-4 border-l-emerald-500 bg-gradient-to-br from-background via-background to-emerald-50/40 p-0 dark:to-emerald-950/20"
       >
         <SheetHeader className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-5 text-white shadow-sm">
-          <SheetTitle className="text-xl font-semibold tracking-tight text-white">
-            {editing ? "Edit" : "New"} Event
+          <SheetTitle
+            className="text-xl font-semibold tracking-tight text-white"
+            data-testid="event-form-title"
+          >
+            {editing ? "Edit" : duplicating ? "Repeat" : "New"} Event
           </SheetTitle>
           <p className="mt-1 text-sm text-white/80">
-            Plan a one-off date or a repeating pattern that rolls across the
-            calendar year.
+            {duplicating
+              ? /* Said plainly, because the form looks exactly like editing
+                   the original and the one thing somebody must not believe
+                   is that they are changing it. */
+                `Everything is filled in from "${duplicating.name}". Change the date — and anything else you like — and save it as a new event. The original is untouched.`
+              : "Plan a one-off date or a repeating pattern that rolls across the calendar year."}
           </p>
         </SheetHeader>
         <Form {...form}>
@@ -562,8 +594,12 @@ export function EventForm({
                         <DatePicker
                           value={field.value}
                           onChange={field.onChange}
-                          placeholder="Pick a date"
+                          placeholder="Type a date, or use the calendar"
                           buttonClassName="w-full"
+                          // Typing "11/3" while arranging next year's
+                          // calendar means next year, not this one.
+                          assumeYear={assumedYear}
+                          hideClear
                           toDate={
                             requiresEndDate && form.getValues("endsOn")
                               ? new Date(form.getValues("endsOn") as number)
@@ -591,8 +627,9 @@ export function EventForm({
                           <DatePicker
                             value={field.value}
                             onChange={field.onChange}
-                            placeholder="Pick an end date"
+                            placeholder="Type a date, or use the calendar"
                             buttonClassName="w-full"
+                            assumeYear={assumedYear}
                             fromDate={
                               form.getValues("startsOn")
                                 ? new Date(form.getValues("startsOn") as number)
@@ -908,7 +945,11 @@ export function EventForm({
                 size="lg"
                 className="w-full bg-emerald-600 font-semibold hover:bg-emerald-700"
               >
-                {isPending ? "Saving..." : "Save Event"}
+                {isPending
+                  ? "Saving..."
+                  : duplicating
+                    ? "Save as a new event"
+                    : "Save Event"}
               </Button>
             </SheetFooter>
           </form>

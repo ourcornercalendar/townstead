@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Check, X, CopyPlus } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useState } from "react";
@@ -25,9 +25,11 @@ type Event = Doc<"events">;
 function ActionsCell({
   row,
   onEdit,
+  onRepeat,
 }: {
   row: { original: Event };
   onEdit: (event: Event) => void;
+  onRepeat: (event: Event) => void;
 }) {
   const softDelete = useMutation(api.events.mutations.softDelete);
   const approveEvent = useMutation(api.events.mutations.approve);
@@ -101,6 +103,17 @@ function ActionsCell({
             <Pencil className="mr-2 h-4 w-4" />
             Edit
           </DropdownMenuItem>
+          {/* The same event again on another day. Most of what repeats on
+              this calendar follows no pattern a repeating rule can express
+              — a market that skips a week, a meeting moved for a holiday —
+              so it was being retyped from scratch each time. */}
+          <DropdownMenuItem
+            onClick={() => onRepeat(row.original)}
+            data-testid="repeat-event"
+          >
+            <CopyPlus className="mr-2 h-4 w-4" />
+            Repeat on another date
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setConfirmOpen(true)}
             className="text-destructive"
@@ -136,10 +149,12 @@ function ActionsCell({
 
 export function columns({
   onEdit,
+  onRepeat,
   calendarEditions,
   categories = [],
 }: {
   onEdit: (event: Event) => void;
+  onRepeat: (event: Event) => void;
   calendarEditions: Doc<"calendarEditions">[];
   categories?: Doc<"categories">[];
 }): ColumnDef<Event>[] {
@@ -258,7 +273,9 @@ export function columns({
     },
     {
       id: "actions",
-      cell: ({ row }) => <ActionsCell row={row} onEdit={onEdit} />,
+      cell: ({ row }) => (
+        <ActionsCell row={row} onEdit={onEdit} onRepeat={onRepeat} />
+      ),
     },
   ];
 }

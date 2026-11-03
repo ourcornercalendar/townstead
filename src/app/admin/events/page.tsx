@@ -53,6 +53,9 @@ export default function EventsPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doc<"events"> | null>(null);
+  // The event being copied. Separate from `editing` on purpose: the form
+  // fills in from either, but only `editing` makes Save change the original.
+  const [duplicating, setDuplicating] = useState<Doc<"events"> | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar" | "print">("list");
   const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "pending">("all");
 
@@ -78,7 +81,14 @@ export default function EventsPage() {
   }
 
   const handleEdit = (event: Doc<"events">) => {
+    setDuplicating(null);
     setEditing(event);
+    setFormOpen(true);
+  };
+
+  const handleRepeat = (event: Doc<"events">) => {
+    setEditing(null);
+    setDuplicating(event);
     setFormOpen(true);
   };
 
@@ -144,6 +154,7 @@ export default function EventsPage() {
             <Button
               onClick={() => {
                 setEditing(null);
+                setDuplicating(null);
                 setFormOpen(true);
               }}
             >
@@ -163,6 +174,7 @@ export default function EventsPage() {
         <DataTable
           columns={columns({
             onEdit: handleEdit,
+            onRepeat: handleRepeat,
             calendarEditions: calendarEditions ?? [],
             categories: categories ?? [],
           })}
@@ -189,8 +201,14 @@ export default function EventsPage() {
       )}
       <EventForm
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(next) => {
+          setFormOpen(next);
+          // Forget what was being copied once the form closes, so the next
+          // "Add Event" opens blank rather than holding yesterday's copy.
+          if (!next) setDuplicating(null);
+        }}
         editing={editing}
+        duplicating={duplicating}
         calendarEditions={calendarEditions ?? []}
       />
     </div>
