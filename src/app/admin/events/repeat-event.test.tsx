@@ -204,3 +204,118 @@ describe("the ordinary modes still behave", () => {
     expect(screen.queryByDisplayValue("Farmers Market")).toBeNull();
   });
 });
+
+/**
+ * Select all / Clear all for calendar editions.
+ *
+ * Most events belong in every edition, and ticking them one at a time was
+ * the job. One button, which becomes "Clear all" once everything is on, so
+ * the same button undoes it.
+ */
+
+const EDITIONS = [
+  { _id: "ed1", name: "West Sacramento" },
+  { _id: "ed2", name: "Sacramento" },
+  { _id: "ed3", name: "Elk Grove" },
+] as unknown as Doc<"calendarEditions">[];
+
+function openWithEditions(
+  props: Partial<React.ComponentProps<typeof EventForm>> = {}
+) {
+  return render(
+    <EventForm
+      open
+      onOpenChange={() => {}}
+      editing={null}
+      calendarEditions={EDITIONS}
+      orgId="org_1"
+      {...props}
+    />
+  );
+}
+
+describe("choosing calendar editions", () => {
+  it("starts with none chosen and says so", () => {
+    openWithEditions();
+    expect(
+      screen.getByTestId("editions-chosen-count").textContent
+    ).toContain("0 of 3");
+    expect(
+      screen.getByTestId("toggle-all-editions").textContent
+    ).toContain("Select all");
+  });
+
+  it("one click ticks every edition", () => {
+    openWithEditions();
+    fireEvent.click(screen.getByTestId("toggle-all-editions"));
+    expect(
+      screen.getByTestId("editions-chosen-count").textContent
+    ).toContain("3 of 3");
+  });
+
+  it("the button then offers to clear them", () => {
+    openWithEditions();
+    fireEvent.click(screen.getByTestId("toggle-all-editions"));
+    expect(
+      screen.getByTestId("toggle-all-editions").textContent
+    ).toContain("Clear all");
+  });
+
+  it("clicking it again empties the list", () => {
+    openWithEditions();
+    fireEvent.click(screen.getByTestId("toggle-all-editions"));
+    fireEvent.click(screen.getByTestId("toggle-all-editions"));
+    expect(
+      screen.getByTestId("editions-chosen-count").textContent
+    ).toContain("0 of 3");
+    expect(
+      screen.getByTestId("toggle-all-editions").textContent
+    ).toContain("Select all");
+  });
+
+  it("sends every edition to the server, not just a tick on screen", async () => {
+    openWithEditions();
+    fireEvent.click(screen.getByTestId("toggle-all-editions"));
+    fireEvent.change(screen.getByLabelText(/^Name/i), {
+      target: { value: "Everywhere Event" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save Event/i }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalled());
+    expect(createMock.mock.calls[0][0].calendarEditionIds).toEqual([
+      "ed1",
+      "ed2",
+      "ed3",
+    ]);
+  });
+
+  it("still offers Select all when only some are ticked", () => {
+    // The halfway state has to offer "select the rest", not "clear what I
+    // have" — otherwise the obvious click throws away the work.
+    openWithEditions();
+    // Exact match because "Sacramento" is also inside "West Sacramento",
+    // and the first of the pair because Base UI renders a styled box plus a
+    // hidden native input, both carrying the label.
+    fireEvent.click(
+      screen.getAllByLabelText("Sacramento", { exact: true })[0]
+    );
+    expect(
+      screen.getByTestId("editions-chosen-count").textContent
+    ).toContain("1 of 3");
+    expect(
+      screen.getByTestId("toggle-all-editions").textContent
+    ).toContain("Select all");
+  });
+
+  it("shows the editions an event already has when repeating it", () => {
+    openWithEditions({
+      duplicating: {
+        ...SOURCE,
+        calendarEditionIds: ["ed1", "ed2"],
+      } as unknown as Doc<"events">,
+    });
+    expect(
+      screen.getByTestId("editions-chosen-count").textContent
+    ).toContain("2 of 3");
+  });
+});

@@ -890,8 +890,40 @@ export function EventForm({
                 <FormField
                   control={form.control}
                   name="calendarEditionIds"
-                  render={({ field }) => (
+                  render={({ field }) => {
+                    const chosen: string[] = field.value ?? [];
+                    const allChosen =
+                      calendarEditions.length > 0 &&
+                      calendarEditions.every((e) => chosen.includes(e._id));
+                    return (
                     <FormItem>
+                      {/* Most events go in every edition, and ticking eight
+                          boxes one at a time for each of them was the job.
+                          One button, and it turns into "Clear all" once
+                          everything is on, so the same button undoes it. */}
+                      <div className="flex items-center gap-3 pb-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          data-testid="toggle-all-editions"
+                          onClick={() =>
+                            field.onChange(
+                              allChosen
+                                ? []
+                                : calendarEditions.map((e) => e._id)
+                            )
+                          }
+                        >
+                          {allChosen ? "Clear all" : "Select all"}
+                        </Button>
+                        <span
+                          className="text-sm text-muted-foreground"
+                          data-testid="editions-chosen-count"
+                        >
+                          {chosen.length} of {calendarEditions.length} selected
+                        </span>
+                      </div>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {calendarEditions.map((edition) => {
                             const checked = (field.value ?? []).includes(
@@ -933,7 +965,8 @@ export function EventForm({
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
+                    );
+                  }}
                 />
               </div>
             )}
