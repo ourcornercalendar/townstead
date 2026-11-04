@@ -309,6 +309,199 @@ describe("the printed calendar square", () => {
     expect(doc.pages).toBe(12);
   });
 
+  // ── NOTHING PRINTS ON TOP OF ANYTHING ELSE ───────────────────────────
+  //
+  // Joyce downloaded a year and the squares came out smudged: an event's
+  // description written over its own name, and "2027 Elk Grove" stacked
+  // into an unreadable blob in the corner. It had been happening before the
+  // numbered positions went in — those made it worse, not new.
+  //
+  // Two separate causes, both invisible in the JSX:
+  //
+  //   1. A wrapping <Text> reports a ONE-LINE height to the layout, so a
+  //      sibling <Text> beneath it was positioned under the first line and
+  //      the rest of the name was drawn through it. The name and its
+  //      description are now one text flow, which lays out correctly.
+  //   2. lineHeight was 1.2 and 1.15 against a glyph box of about 1.38 of
+  //      the font size, so consecutive lines of the SAME text overlapped
+  //      by a point and a half and looked bruised.
+  //
+  // This checks the only thing that actually matters about either: that no
+  // two pieces of text share the same patch of paper.
+
+  /** Every pair of spans whose boxes genuinely cover each other. */
+  function collisions(spans: Span[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < spans.length; i++) {
+      for (let j = i + 1; j < spans.length; j++) {
+        const a = spans[i];
+        const b = spans[j];
+        // A point and a half of slack: glyph boxes carry a little padding
+        // above and below the ink, and touching is not colliding.
+        const vertical = Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y);
+        const horizontal = Math.min(a.right, b.right) - Math.max(a.x, b.x);
+        if (vertical > 1.5 && horizontal > 1.5) {
+          out.push(`"${a.text.trim()}" over "${b.text.trim()}"`);
+        }
+      }
+    }
+    return out;
+  }
+
+  it("never prints two pieces of text on top of each other", async () => {
+    // The exact month Joyce downloaded: long names, long descriptions,
+    // school dates in red.
+    const pdf = await renderJanuary([
+      event({
+        name: "EGUSD Track A, Track B, Track D Resumes School",
+        description: "School resumes for Tracks A, B, & D after the winter break.",
+        date: day(2027, 0, 4),
+        isScusd: true,
+      } as TestEvent),
+      event({
+        name: "EGUSD Traditional Resumes School",
+        description: "Traditional calendar students return to school after the winter break.",
+        date: day(2027, 0, 5),
+        isScusd: true,
+      } as TestEvent),
+      event({
+        name: "EGUSD Mod T Resumes School",
+        description: "Modified traditional students return to school after winter break.",
+        date: day(2027, 0, 12),
+        isScusd: true,
+      } as TestEvent),
+      event({ name: "EGUSD No School", date: day(2027, 0, 18), isScusd: true } as TestEvent),
+      event({ name: "Happy Birthday Kylie Edwards!", date: day(2027, 0, 27) } as TestEvent),
+    ]);
+
+    const found = collisions(await pdfSpans(pdf));
+    expect(found, found.join("\n")).toEqual([]);
+  });
+
+  it("keeps a crowded square readable too", async () => {
+    // Several events on one day, each with a description, which is where
+    // the square has least room to give.
+    const pdf = await renderJanuary(
+      [1, 2, 3, 4].map((n) =>
+        event({
+          name: `Something With A Fairly Long Name Number ${n}`,
+          description: "And a description that will certainly need more than one line to print.",
+          date: day(2027, 0, 9),
+          printPriority: n,
+        } as TestEvent)
+      )
+    );
+    const found = collisions(await pdfSpans(pdf));
+    expect(found, found.join("\n")).toEqual([]);
+  });
+
+  it("keeps a very full square from printing across the week below", async () => {
+    // What the smeared download actually looked like: text from one day
+    // running down over the following week's numbers. Nothing "overlaps" a
+    // neighbour in an empty square, so the collision check above cannot see
+    // this — it needs measuring against the row.
+    const pdf = await renderJanuary(
+      [1, 2, 3, 4, 5, 6].map((n) =>
+        event({
+          name: `Quite A Long Event Name Number ${n}`,
+          description:
+            "With a description long enough to need three or four lines of its own on the page.",
+          date: day(2027, 0, 9),
+          printPriority: n,
+        } as TestEvent)
+      )
+    );
+    const spans = await pdfSpans(pdf);
+
+    // The 9th is in the second week; the 10th starts the third. Anything
+    // belonging to the 9th must finish above where the 10th begins.
+    const nextRowTop = Math.min(
+      ...["10", "11", "12", "13", "14", "15", "16"]
+        .map((d) => spans.find((s) => s.text.trim() === d)?.y)
+        .filter((y): y is number => typeof y === "number")
+    );
+    expect(Number.isFinite(nextRowTop)).toBe(true);
+
+    const spilled = spans
+      .filter((s) => s.text.includes("Quite A Long") || s.text.includes("description long"))
+      .filter((s) => s.bottom > nextRowTop);
+    expect(spilled.map((s) => s.text), "printed into the week below").toEqual([]);
+  });
+
+  it("leaves more leading than the type itself takes up", async () => {
+    // The second of the two faults behind the smeared download, and a
+    // precise one: lineHeight was 1.2 on the name and 1.15 on the
+    // description, while Helvetica's glyph box here measures about 1.38 of
+    // the font size. Every line was drawn a point and a half into the one
+    // above it. Too small to call a collision, too big to read comfortably,
+    // so it is measured directly rather than left to the tolerance the
+    // check above allows.
+    const pdf = await renderJanuary([
+      event({
+        name: "A Name Quite Long Enough To Need Three Lines All By Itself Here",
+        description:
+          "And a description also long enough that it has to wrap more than once.",
+        date: day(2027, 0, 9),
+      } as TestEvent),
+    ]);
+    const spans = await pdfSpans(pdf);
+
+    // Picked out by POINT SIZE, not by words. An earlier version of this
+    // hunted for phrases, and two of them straddled a line break — so it
+    // compared the first line against the third, found a healthy gap, and
+    // passed while the real lines overlapped.
+    const linesAt = (size: number) =>
+      spans.filter((s) => s.size === size).sort((a, b) => a.y - b.y);
+
+    for (const [what, size] of [
+      ["the name", 8],
+      ["the description", 7.5],
+    ] as const) {
+      const lines = linesAt(size);
+      expect(lines.length, `expected several lines of ${what}`).toBeGreaterThan(1);
+      for (let i = 1; i < lines.length; i++) {
+        const gap = lines[i].y - lines[i - 1].bottom;
+        expect(
+          gap,
+          `${what}: "${lines[i - 1].text.trim()}" and "${lines[i].text.trim()}" overlap by ${(-gap).toFixed(2)}pt`
+        ).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("prints the edition on one line, not stacked in the corner", async () => {
+    // It is absolutely positioned in a header whose centred month title
+    // leaves it almost no width, so it wrapped to three lines drawn on top
+    // of one another: "2027 Elk Grove" read as "2027 / Elk".
+    const pdf = await generateCalendarPdf({
+      year: 2027,
+      events: [],
+      editionLabel: "Elk Grove",
+      calendarEditionId: null,
+    });
+    const spans = await pdfSpans(pdf);
+    const edition = spans.find((s) => s.text.includes("2027"));
+    expect(edition).toBeDefined();
+    expect(edition!.text.replace(/\s+/g, " ").trim()).toBe("2027 Elk Grove");
+    expect(collisions(spans)).toEqual([]);
+  });
+
+  it("sets the name in bold and the description in regular", async () => {
+    // The description is nested inside the name's Text so the two lay out
+    // as one flow — which means it inherits bold unless told otherwise.
+    // The whole point of the bold is that the eye finds the name first.
+    const pdf = await renderJanuary([
+      event({
+        name: "Farmers Market",
+        description: "Old Town, rain or shine",
+        date: day(2027, 0, 9),
+      } as TestEvent),
+    ]);
+    const spans = await pdfSpans(pdf);
+    expect(spans.find((s) => s.text.includes("Farmers Market"))?.bold).toBe(true);
+    expect(spans.find((s) => s.text.includes("rain or shine"))?.bold).toBe(false);
+  });
+
   it("writes a copy to look at", async () => {
     // Deliberately a mixture: numbered positions, a day crowded past five, a
     // day holding nothing but a 5, school district dates, and two events
@@ -340,7 +533,20 @@ describe("the printed calendar square", () => {
 
 /* ── reading the PDF back ──────────────────────────────────────────────────── */
 
-type Span = { text: string; y: number; bold: boolean; red: boolean };
+type Span = {
+  text: string;
+  /** Top of the glyph box. */
+  y: number;
+  /** Bottom of the glyph box — needed to tell whether two lines collide. */
+  bottom: number;
+  x: number;
+  right: number;
+  bold: boolean;
+  red: boolean;
+  /** Point size, which is how the event name (8) is told from its
+   *  description (7.5) without guessing at their words. */
+  size: number;
+};
 
 async function openPdf(buffer: Buffer): Promise<{ pages: number; spans: Span[] }> {
   const { execFileSync } = await import("node:child_process");
@@ -363,7 +569,11 @@ for block in page.get_text("dict")["blocks"]:
             spans.append({
                 "text": s["text"],
                 "y": s["bbox"][1],
+                "bottom": s["bbox"][3],
+                "x": s["bbox"][0],
+                "right": s["bbox"][2],
                 "bold": "Bold" in s["font"],
+                "size": round(s["size"], 2),
                 "red": s["color"] != 0 and (s["color"] >> 16 & 255) > 120 and (s["color"] & 255) < 120,
             })
 print(json.dumps({"pages": doc.page_count, "spans": spans}))

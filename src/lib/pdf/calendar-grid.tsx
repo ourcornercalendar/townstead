@@ -79,6 +79,14 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontStyle: "italic",
     color: PALETTE.mutedInk,
+    // A width, because this sits absolutely positioned in a header whose
+    // centred month title leaves it almost none. Without one it was
+    // squeezed to about three characters wide, so "2027 Elk Grove" wrapped
+    // onto three lines that were then drawn on top of each other — it read
+    // as "2027 / Elk" with "Grove" hidden underneath.
+    width: 190,
+    maxLines: 1,
+    textOverflow: "ellipsis",
   },
   monthTitle: {
     fontSize: 14,
@@ -136,18 +144,33 @@ const styles = StyleSheet.create({
   //
   // The top band is pushed down to clear the day number, which is drawn in the
   // corner over the top of everything.
+  // A slot GROWS to share out spare height — that is what holds an event at
+  // position 5 down on the floor — but it has to START from the size of the
+  // text inside it.
+  //
+  // `flex: 1` is shorthand for `flexGrow:1, flexShrink:1, flexBasis:0%`, and
+  // that last part is what smeared Joyce's downloaded calendar: a basis of 0
+  // tells the layout to IGNORE the text when sharing out the height. Four
+  // events in one square were each handed an equal 18pt while needing about
+  // 55, so every one of them printed across the next three.
+  //
+  // "auto" starts from what the text actually needs, and flexGrow shares out
+  // only what is left over.
   slotFirst: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "auto",
     justifyContent: "flex-start",
     // Clear of the day number in the corner.
     paddingTop: 13,
   },
   slotMiddle: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "auto",
     justifyContent: "center",
   },
   slotLast: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "auto",
     justifyContent: "flex-end",
   },
   eventsList: {
@@ -161,11 +184,15 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontSize: 8,
     fontWeight: "bold",
-    lineHeight: 1.2,
+    // 1.4, not 1.2. Helvetica's glyph box measures about 1.38 of the font
+    // size, so tighter leading drew each line a point and a half into the
+    // one above it and the words looked bruised.
+    lineHeight: 1.4,
   },
   eventDescription: {
     fontSize: 7.5,
-    lineHeight: 1.15,
+    // Same reason; at 1.15 this was the worse of the two.
+    lineHeight: 1.4,
   },
   scusdInk: {
     color: PALETTE.scusd,
