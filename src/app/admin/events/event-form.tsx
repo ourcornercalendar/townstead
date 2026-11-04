@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -32,6 +32,7 @@ import {
   priorityOf,
 } from "@/lib/events/print-priority";
 import { DatePicker } from "@/components/ui/date-picker";
+import { SquarePreview } from "@/components/shared/square-preview";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -170,6 +171,53 @@ interface EventFormProps {
   orgId?: string;
 }
 
+/**
+ * The live square, fed by the form.
+ *
+ * Its own component so the `watch` calls that drive it re-render this and
+ * not the whole form on every keystroke.
+ */
+function SquarePreviewField({
+  form,
+  orgEvents,
+  editingId,
+}: {
+  form: UseFormReturn<EventFormValues>;
+  orgEvents: Doc<"events">[];
+  editingId: Id<"events"> | null;
+}) {
+  const name = form.watch("name") ?? "";
+  const description = form.watch("description") ?? "";
+  const date = form.watch("startsOn") ?? form.watch("date");
+  const priority = form.watch("printPriority");
+  const scusd = form.watch("isScusd") ?? false;
+
+  if (!date) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Pick a date to see how this will look on the printed square.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium">On the square</p>
+      <SquarePreview
+        draft={{
+          name,
+          description,
+          date,
+          priority: clampPriority(priority),
+          scusd,
+        }}
+        otherEvents={orgEvents}
+        editingId={editingId}
+      />
+    </div>
+  );
+}
+
 export function EventForm({
   open,
   onOpenChange,
@@ -227,6 +275,14 @@ export function EventForm({
   // is the one being worked on. Falling back to the system year would file
   // next year's events a year early, quietly, every time.
   const watchedStart = form.watch("startsOn");
+  // Everything already on this calendar, so the square can show the draft
+  // against whatever else lands on that day. Same query the events list
+  // uses, so a helper on the events desk gets the same answer they already
+  // get everywhere else.
+  const orgEvents = useQuery(
+    api.events.queries.list,
+    orgId ? { orgId } : "skip"
+  );
   const assumedYear = watchedStart
     ? new Date(watchedStart).getFullYear()
     : new Date().getFullYear();
@@ -777,6 +833,17 @@ export function EventForm({
                     regular.
                   </p>
                 </div>
+
+                {/* The square itself, while you type. Built by the same
+                    functions that build the PDF, at the printed square's own
+                    proportions, with whatever else is on that day already in
+                    it. Saving and downloading a calendar to find out whether
+                    something fits was the long way round. */}
+                <SquarePreviewField
+                  form={form}
+                  orgEvents={orgEvents ?? []}
+                  editingId={editing?._id ?? null}
+                />
 
                 <FormField
                   control={form.control}

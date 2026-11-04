@@ -469,6 +469,96 @@ describe("the printed calendar square", () => {
     }
   });
 
+  // ── THE SQUARES ARE SQUARES ──────────────────────────────────────────
+  //
+  // This calendar is sent to a designer and printed on paper. A week row
+  // used to stretch to fit its busiest day, so a month with one crowded
+  // Saturday printed with rows of three different heights and a grid that
+  // did not line up.
+
+  it("gives every week the same height, however much is on it", async () => {
+    const pdf = await renderJanuary([
+      // One very busy day, and the rest of the month nearly empty.
+      ...[1, 2, 3, 4].map((n) =>
+        event({
+          name: `Busy Day Event Number ${n}`,
+          description: "With a description that runs on for a line or two.",
+          date: day(2027, 0, 9),
+          printPriority: n,
+        } as TestEvent)
+      ),
+      event({ name: "Quiet", date: day(2027, 0, 20) } as TestEvent),
+    ]);
+
+    const spans = await pdfSpans(pdf);
+    // The top of each week, taken from the day numbers that start them.
+    const rowTop = (d: string) =>
+      spans.find((s) => s.text.trim() === d && s.size > 10)?.y;
+    const tops = ["3", "10", "17"].map(rowTop);
+    expect(tops.every((t) => typeof t === "number")).toBe(true);
+
+    const first = (tops[1] as number) - (tops[0] as number);
+    const second = (tops[2] as number) - (tops[1] as number);
+    // The busy week is the one between the first two, so if rows still
+    // stretched these would differ by tens of points.
+    expect(Math.abs(first - second)).toBeLessThan(1);
+  });
+
+  it("stays readable at any number of events on one day", async () => {
+    // Every count from a quiet day to an absurd one. Each is a whole PDF,
+    // so this is deliberately a single test rather than a dozen.
+    for (const count of [1, 3, 5, 8, 12]) {
+      const pdf = await renderJanuary(
+        Array.from({ length: count }, (_, i) =>
+          event({
+            name: `Something With A Fairly Long Name Number ${i + 1}`,
+            description:
+              "And a description that will certainly need more than one line to print.",
+            date: day(2027, 0, 9),
+            printPriority: i + 1,
+          } as TestEvent)
+        )
+      );
+      const found = collisions(await pdfSpans(pdf));
+      expect(found, `${count} events:\n${found.join("\n")}`).toEqual([]);
+    }
+  });
+
+  it("drops descriptions before it drops events", async () => {
+    // A busy day keeps every name and loses the descriptions, because the
+    // name is the part that has to be on the calendar.
+    const pdf = await renderJanuary(
+      [1, 2, 3, 4, 5].map((n) =>
+        event({
+          name: `Event Number ${n}`,
+          description: "A description that should give way first.",
+          date: day(2027, 0, 9),
+          printPriority: n,
+        } as TestEvent)
+      )
+    );
+    const text = (await pdfSpans(pdf)).map((s) => s.text).join(" ");
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(text, `name ${n} should still print`).toContain(`Event Number ${n}`);
+    }
+    expect(text).not.toContain("should give way first");
+  });
+
+  it("says how many were left off when a day will not fit at all", async () => {
+    const pdf = await renderJanuary(
+      Array.from({ length: 12 }, (_, i) =>
+        event({
+          name: `Event Number ${i + 1}`,
+          date: day(2027, 0, 9),
+          printPriority: i + 1,
+        } as TestEvent)
+      )
+    );
+    const text = (await pdfSpans(pdf)).map((s) => s.text).join(" ");
+    // Seven print, one line is given to saying so.
+    expect(text).toContain("+5 more");
+  });
+
   it("prints the edition on one line, not stacked in the corner", async () => {
     // It is absolutely positioned in a header whose centred month title
     // leaves it almost no width, so it wrapped to three lines drawn on top

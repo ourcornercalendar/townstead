@@ -8,7 +8,11 @@ import {
   renderToBuffer,
   Font,
 } from "@react-pdf/renderer";
-import { bySlot, inPrintOrder } from "@/lib/events/print-priority";
+import {
+  bySlot,
+  inPrintOrder,
+  fitToSquare,
+} from "@/lib/events/print-priority";
 // The month is laid out by a function the on-screen preview also calls, so
 // "preview" genuinely means "what will print" rather than a second opinion.
 import {
@@ -115,9 +119,23 @@ const styles = StyleSheet.create({
   dayHeaderCellLast: {
     borderRightWidth: 0,
   },
+  // EVERY WEEK ROW THE SAME HEIGHT.
+  //
+  // `flexBasis: 0` is what forces that: it tells the layout to divide the
+  // page evenly between the rows and ignore how much is in each one.
+  // Without it (the default, "auto") a row grew to fit its busiest day, so
+  // a month with one crowded Saturday printed with rows of three different
+  // heights and a grid that does not line up.
+  //
+  // This calendar is sent to a designer and printed on paper, where the
+  // squares have to be squares. A day holding more than fits is clipped at
+  // its own border — see dayCell — rather than pushing the weeks below it
+  // out of true.
   weekRow: {
     flexDirection: "row",
     flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     borderTopWidth: 0.5,
     borderTopColor: PALETTE.border,
   },
@@ -127,6 +145,10 @@ const styles = StyleSheet.create({
     borderRightColor: PALETTE.border,
     padding: 4,
     position: "relative",
+    // Now that a row cannot stretch, this is what stops an over-full day
+    // printing across the week beneath it. Clipped at the border is a
+    // problem the designer can see; printed over next Tuesday is not.
+    overflow: "hidden",
   },
   dayCellLast: {
     borderRightWidth: 0,
@@ -158,6 +180,11 @@ const styles = StyleSheet.create({
   // only what is left over.
   slotFirst: {
     flexGrow: 1,
+    // Never squeezed below its own text. With the week rows now a fixed
+    // height this matters: a shrunk slot does not clip, it lets its text
+    // spill over whatever is underneath. The clipping happens at the cell
+    // border instead, which is where it belongs.
+    flexShrink: 0,
     flexBasis: "auto",
     justifyContent: "flex-start",
     // Clear of the day number in the corner.
@@ -165,11 +192,21 @@ const styles = StyleSheet.create({
   },
   slotMiddle: {
     flexGrow: 1,
+    // Never squeezed below its own text. With the week rows now a fixed
+    // height this matters: a shrunk slot does not clip, it lets its text
+    // spill over whatever is underneath. The clipping happens at the cell
+    // border instead, which is where it belongs.
+    flexShrink: 0,
     flexBasis: "auto",
     justifyContent: "center",
   },
   slotLast: {
     flexGrow: 1,
+    // Never squeezed below its own text. With the week rows now a fixed
+    // height this matters: a shrunk slot does not clip, it lets its text
+    // spill over whatever is underneath. The clipping happens at the cell
+    // border instead, which is where it belongs.
+    flexShrink: 0,
     flexBasis: "auto",
     justifyContent: "flex-end",
   },
@@ -180,6 +217,11 @@ const styles = StyleSheet.create({
   },
   eventItem: {
     marginBottom: 1.5,
+  },
+  moreNote: {
+    fontSize: 7,
+    fontStyle: "italic",
+    color: PALETTE.mutedInk,
   },
   eventTitle: {
     fontSize: 8,
@@ -193,6 +235,10 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     // Same reason; at 1.15 this was the worse of the two.
     lineHeight: 1.4,
+    // Explicit, because this renders nested inside the name's Text (see
+    // EventLines) and would otherwise inherit its bold. The name is bold
+    // so the eye finds it first in an inch-wide square.
+    fontWeight: "normal",
   },
   scusdInk: {
     color: PALETTE.scusd,
@@ -208,6 +254,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 4,
     position: "relative",
+    // Now that a row cannot stretch, this is what stops an over-full day
+    // printing across the week beneath it. Clipped at the border is a
+    // problem the designer can see; printed over next Tuesday is not.
+    overflow: "hidden",
   },
   splitHalfTop: {
     borderBottomWidth: 0.5,
@@ -273,19 +323,41 @@ function EventLines({
   titleStyle,
   descriptionStyle,
   itemStyle,
+  maxLines,
 }: {
   event: PrintedEvent;
   titleStyle: PdfStyle;
   descriptionStyle: PdfStyle;
   itemStyle: PdfStyle;
+  /**
+   * How many lines this event may use. The square is a fixed size, so the
+   * budget has to be enforced here rather than hoped for — without a cap
+   * the layout engine squeezes the lines together and they print over each
+   * other instead of being cut.
+   */
+  maxLines?: number;
 }) {
   const ink = event.scusd ? styles.scusdInk : {};
   return (
     <View style={itemStyle}>
-      <Text style={[titleStyle, ink]}>{event.name}</Text>
-      {event.description ? (
-        <Text style={[descriptionStyle, ink]}>{event.description}</Text>
-      ) : null}
+      {/* The description is nested INSIDE the name's Text, not a sibling
+          beside it, and that is deliberate.
+
+          A <Text> that wraps reports a ONE-LINE height to the layout when
+          the space around it is tight — which it now always is, because a
+          week row is a fixed height. A sibling placed under it is therefore
+          positioned under the FIRST line of the name, and the rest of the
+          name prints straight through the description. One flow lays out
+          correctly, because the wrapping all happens inside a single
+          text node. */}
+      <Text
+        style={[titleStyle, ink, maxLines ? { maxLines, textOverflow: "ellipsis" } : {}]}
+      >
+        {event.name}
+        {event.description ? (
+          <Text style={[descriptionStyle, ink]}>{"\n" + event.description}</Text>
+        ) : null}
+      </Text>
     </View>
   );
 }
@@ -297,9 +369,14 @@ function DayCell({
   cell: CalendarDayCell;
   isLast: boolean;
 }) {
+  // What will fit, before anything is positioned. The square cannot grow —
+  // it is a printed grid — so a day with more on it than fits loses its
+  // descriptions first and then its last events, rather than the layout
+  // cramming everything in on top of itself.
+  const { shown, hidden, linesEach } = fitToSquare(inPrintOrder(cell.events));
   // One slot per position, slot 1 at the top. Five of them normally; more if
   // something on this day is numbered past five.
-  const slots = bySlot(cell.events);
+  const slots = bySlot(shown);
 
   return (
     <View style={[styles.dayCell, isLast ? styles.dayCellLast : {}]}>
@@ -324,11 +401,18 @@ function DayCell({
                     itemStyle={styles.eventItem}
                     titleStyle={styles.eventTitle}
                     descriptionStyle={styles.eventDescription}
+                    maxLines={linesEach}
                   />
                 ))}
               </View>
             ))}
           </View>
+          {hidden > 0 && (
+            /* Said out loud rather than silently cut. Whoever is laying out
+               the printed calendar needs to know a day was trimmed; finding
+               out from the finished article is too late. */
+            <Text style={styles.moreNote}>+{hidden} more</Text>
+          )}
         </>
       )}
     </View>

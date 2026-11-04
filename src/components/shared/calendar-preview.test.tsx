@@ -223,3 +223,22 @@ describe("changing a position from the preview", () => {
     expect(onSetPriority).not.toHaveBeenCalled();
   });
 });
+
+describe("a day that will not all print", () => {
+  // The printed square is a fixed size. A month view that listed events
+  // which never reach the paper would mislead whoever is arranging it.
+  it("shows only what fits, and says how many did not", () => {
+    show(
+      Array.from({ length: 12 }, (_, i) =>
+        event({ name: `Event ${i + 1}`, day: 9, printPriority: i + 1 } as never)
+      )
+    );
+    expect(namesIn(9)).toHaveLength(7);
+    expect(squareFor(9).textContent).toContain("+5 more");
+  });
+
+  it("says nothing of the sort on an ordinary day", () => {
+    show([event({ name: "Just the one", day: 9 })]);
+    expect(squareFor(9).textContent).not.toContain("more");
+  });
+});

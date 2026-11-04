@@ -147,3 +147,67 @@ export function bySlot<T extends { priority: number }>(
   }
   return out;
 }
+
+/**
+ * How much a printed square holds.
+ *
+ * A square is 112.9pt tall (the page divided evenly between five rows — the
+ * rows do NOT stretch to fit, because this calendar is printed on paper and
+ * the grid has to line up). Take off 13pt of clearance for the day number
+ * in the corner and 8pt of padding and about 92pt is left, which at 8pt
+ * type on 1.4 leading is eight lines.
+ *
+ * Measured off a rendered page rather than guessed; if the page geometry
+ * ever changes, re-measure rather than nudging this.
+ */
+export const SQUARE_LINE_BUDGET = 8;
+
+/**
+ * How many lines each event on a day may use.
+ *
+ * The budget is shared out evenly, which gives descriptions room on a quiet
+ * day and drops them on a busy one without anybody having to decide:
+ *
+ *   1 event   → 8 lines  (name and a full description)
+ *   2 events  → 4 each
+ *   3-4       → 2 each   (name, and a line of description if it fits)
+ *   5-8       → 1 each   (names only)
+ *
+ * The name always comes first inside that allowance, so what gets dropped
+ * is the description — which is the right thing to lose. An allowance is
+ * never less than one line: an event that cannot show its name may as well
+ * not be on the calendar.
+ */
+export function linesPerEvent(count: number): number {
+  if (count <= 0) return SQUARE_LINE_BUDGET;
+  return Math.max(1, Math.floor(SQUARE_LINE_BUDGET / count));
+}
+
+/**
+ * What actually prints in one square, and how many events did not fit.
+ *
+ * Past eight events even one line each is too many, so the last line is
+ * given over to saying how many were left off. A designer laying out a
+ * printed calendar needs to know that a day was trimmed; finding out from
+ * the finished calendar is too late.
+ */
+export function fitToSquare<T>(events: readonly T[]): {
+  shown: T[];
+  hidden: number;
+  linesEach: number;
+} {
+  if (events.length <= SQUARE_LINE_BUDGET) {
+    return {
+      shown: [...events],
+      hidden: 0,
+      linesEach: linesPerEvent(events.length),
+    };
+  }
+  // One line kept back for the "+N more" marker.
+  const room = SQUARE_LINE_BUDGET - 1;
+  return {
+    shown: events.slice(0, room),
+    hidden: events.length - room,
+    linesEach: 1,
+  };
+}

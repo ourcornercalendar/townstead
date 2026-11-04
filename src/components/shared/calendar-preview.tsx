@@ -9,6 +9,7 @@ import {
   QUICK_PRIORITIES,
   bySlot,
   clampPriority,
+  fitToSquare,
   inPrintOrder,
 } from "@/lib/events/print-priority";
 import { Button } from "@/components/ui/button";
@@ -182,9 +183,13 @@ function DaySquare({
   canEdit: boolean;
   onSetPriority?: (id: string, priority: number) => Promise<void>;
 }) {
-  // The same slotting the printed square uses, empty slots and all — which is
-  // what shows at a glance that position 5 really is sitting at the floor.
-  const slots = bySlot(events);
+  // The same fitting and slotting the printed square uses — empty slots and
+  // all, which is what shows at a glance that position 5 really is sitting
+  // at the floor. Fitting first matters: a printed square is a fixed size,
+  // so a month view that listed events which never reach the paper would
+  // be telling whoever is arranging it something untrue.
+  const { shown, hidden } = fitToSquare(inPrintOrder(events));
+  const slots = bySlot(shown);
 
   if (day === null) {
     return <div className="min-h-[104px] border-b border-r bg-muted/30 last:border-r-0" />;
@@ -217,6 +222,14 @@ function DaySquare({
           </div>
         ))}
       </div>
+      {hidden > 0 && (
+        <span
+          data-testid="day-overflow"
+          className="px-0.5 text-[10px] italic text-muted-foreground"
+        >
+          +{hidden} more
+        </span>
+      )}
     </div>
   );
 }

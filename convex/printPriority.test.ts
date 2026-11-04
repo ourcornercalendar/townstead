@@ -9,6 +9,9 @@ import {
   inPrintOrder,
   priorityOf,
   slotsForDay,
+  SQUARE_LINE_BUDGET,
+  linesPerEvent,
+  fitToSquare,
 } from "./printPriority";
 
 /**
@@ -174,5 +177,65 @@ describe("pinning events into slots", () => {
   it("an empty day is still a grid of slots, not nothing", () => {
     expect(bySlot([])).toHaveLength(BASE_SLOTS);
     expect(bySlot([]).flat()).toEqual([]);
+  });
+});
+
+describe("what fits in a printed square", () => {
+  // The squares are a fixed size — this calendar is printed on paper and
+  // the grid has to line up — so a day with more on it than fits has to
+  // lose something. These are the rules for what.
+
+  it("gives a lone event the whole square", () => {
+    expect(linesPerEvent(1)).toBe(SQUARE_LINE_BUDGET);
+  });
+
+  it("shares the square out evenly", () => {
+    expect(linesPerEvent(2)).toBe(4);
+    expect(linesPerEvent(4)).toBe(2);
+  });
+
+  it("falls back to names only once a day is busy", () => {
+    expect(linesPerEvent(5)).toBe(1);
+    expect(linesPerEvent(8)).toBe(1);
+  });
+
+  it("never allows less than one line", () => {
+    // An event that cannot show its name may as well not be printed.
+    expect(linesPerEvent(50)).toBe(1);
+  });
+
+  it("never hands out more than the square holds", () => {
+    for (let n = 1; n <= SQUARE_LINE_BUDGET; n++) {
+      expect(linesPerEvent(n) * n).toBeLessThanOrEqual(SQUARE_LINE_BUDGET);
+    }
+  });
+
+  it("shows everything when everything fits", () => {
+    const events = [1, 2, 3];
+    const { shown, hidden } = fitToSquare(events);
+    expect(shown).toEqual(events);
+    expect(hidden).toBe(0);
+  });
+
+  it("keeps a line back to say how many were left off", () => {
+    const events = Array.from({ length: 12 }, (_, i) => i);
+    const { shown, hidden, linesEach } = fitToSquare(events);
+    expect(shown).toHaveLength(SQUARE_LINE_BUDGET - 1);
+    expect(hidden).toBe(12 - (SQUARE_LINE_BUDGET - 1));
+    expect(linesEach).toBe(1);
+    // Everything drawn, the marker included, still inside the budget.
+    expect(shown.length * linesEach + 1).toBeLessThanOrEqual(SQUARE_LINE_BUDGET);
+  });
+
+  it("keeps the first events in print order, not an arbitrary few", () => {
+    const events = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    expect(fitToSquare(events).shown[0]).toBe("a");
+    expect(fitToSquare(events).shown).toEqual(events.slice(0, 7));
+  });
+
+  it("copes with an empty day", () => {
+    const { shown, hidden } = fitToSquare([]);
+    expect(shown).toEqual([]);
+    expect(hidden).toBe(0);
   });
 });
